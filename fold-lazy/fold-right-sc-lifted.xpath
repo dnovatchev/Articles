@@ -1,0 +1,61 @@
+let $fold-right-sc-lifted-inner := 
+                         function ($seqGen as function(xs:integer) as array(*),
+                                    $index as xs:integer,
+                                    $zero as item()*,
+                                    $f as function(item(), item()*) as item()* ,
+                                    $fGetPartial as function(*),
+                                    $self as function(*)
+                                   ) as item()*
+{
+ let $nextSeqResult := $seqGen($index),
+      $isEndOfSeq :=  $nextSeqResult(1),
+      $seqItem := $nextSeqResult(2)
+    return
+      if($isEndOfSeq) then $zero
+        else
+          if(function-arity($fGetPartial($seqItem, $zero)) eq 0)
+            then $fGetPartial($seqItem, $zero) ()
+            else $f($seqItem, $self($seqGen, $index+1, $zero, $f, $fGetPartial, $self))
+},
+
+    $fold-right-sc-lifted := function ($seqGen as function(xs:integer) as array(*),
+                                       $zero as item()*,
+                                       $f as function(item(), item()*) as item()*,
+                                       $fGetPartial as function(*) 
+                                      ) as item()*
+                {
+                 $fold-right-sc-lifted-inner($seqGen, 
+                                             1, 
+                                             $zero, 
+                                             $f, 
+                                             $fGetPartial, $fold-right-sc-lifted-inner)
+                },
+                                  
+   $NaN := xs:double('NaN'),
+   
+   $fSeq1ToN := 
+         function($ind as xs:integer, $indStart as xs:integer, $indEnd as xs:integer) 
+                                                                            as array(*)
+         {
+           if($ind lt  $indStart or $ind gt $indEnd)
+             then  array{true(), $NaN}
+             else array{false(), $ind}
+         },
+   $fSeq-1-6 := $fSeq1ToN(?, 1, 6),
+   $fSeq-1-1M := $fSeq1ToN(?, 1, 1000000),
+   $fSeq-1-1M-minus-3 := function($n as xs:integer)
+   {
+     array{$fSeq-1-1M($n)(1), $fSeq-1-1M($n)(2) -3}
+   },
+               
+   $fAdd := function($x, $y)  {$x + $y},
+   $fMult  := function($x, $y)  {$x * $y},
+   $fMultGetPartial := function($x, $y)
+   {
+     if($x eq 0)
+       then function() {0}
+       else function($z) {$x * $z}
+   }
+   
+   return
+     $fold-right-sc-lifted($fSeq-1-1M-minus-3, 1, $fMult, $fMultGetPartial)

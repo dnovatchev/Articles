@@ -1,0 +1,42 @@
+ let $fold-right-lifted-inner := function ($seqGen as function(xs:integer) as array(*),
+                                    $index as xs:integer,
+                                    $zero as item()*,
+                                    $f as function(item(), item()*) as item()* ,
+                                    $self as function(*)
+                                   ) as item()*
+                      {
+                        let $nextSeqResult := $seqGen($index),
+                            $isEndOfSeq :=  $nextSeqResult(1),
+                            $seqItem := $nextSeqResult(2)
+                         return
+                           if($isEndOfSeq) then $zero
+                             else
+                               $f($seqItem, $self($seqGen, $index+1, $zero, $f, $self))
+                      },
+
+    $fold-right-lifted := function ($seqGen as function(xs:integer) as array(*),
+                                    $zero as item()*,
+                                    $f as function(item(), item()*) as item()* 
+                                  ) as item()*
+            {
+              $fold-right-lifted-inner($seqGen, 1, $zero, $f, $fold-right-lifted-inner)
+            },
+                                  
+   $NaN := xs:double('NaN'),
+   
+   $fSeq1ToN := function($ind as xs:integer, 
+                         $indStart as xs:integer, 
+                         $indEnd as xs:integer) as array(*)
+                {
+                  if($ind lt  $indStart or $ind gt $indEnd)
+                    then  array{true(), $NaN}
+                    else array{false(), $ind}
+                },
+   $fSeq-1-6 := $fSeq1ToN(?, 1, 6),
+               
+   $fAdd := function($x, $y)  {$x + $y},
+   $fMult  := function($x, $y)  {$x * $y}
+   
+   return
+     $fold-right-lifted($fSeq-1-6, 1, $fMult)
+ 

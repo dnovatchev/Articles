@@ -1,0 +1,24 @@
+let $fold-right-inner := function ($seq as item()*,
+                                    $zero as item()*,
+                                    $f as function(item(), item()*) as item()* ,
+                                    $self as function(*)
+                                   ) as item()*
+{
+  if(empty($seq)) then $zero
+    else
+      $f(head($seq), $self(tail($seq), $zero, $f, $self))
+},
+
+    $fold-right := function ($seq as item()*,
+                             $zero as item()*,
+                             $f as function(item(), item()*) as item()* 
+                            ) as item()*
+{
+  $fold-right-inner($seq, $zero, $f, $fold-right-inner)
+},
+
+   $fAdd := function($x, $y)  {$x + $y},
+   $fMult  := function($x, $y)  {$x * $y}
+
+   return
+     $fold-right((1 to 24) ! function($x){$x - 3}(.), 1, $fMult)

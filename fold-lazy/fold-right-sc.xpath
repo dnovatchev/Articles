@@ -1,0 +1,37 @@
+let $fold-right-sc-inner := function ($seq as item()*,
+                                       $zero as item()*,
+                                       $f as function(item(), item()*) as item()*,
+                                       $fGetPartial as function(*),
+                                       $self as function(*)
+                                      ) as item()*
+{
+  if(empty($seq)) then $zero
+    else
+      if(function-arity($fGetPartial(head($seq), $zero)) eq 0)
+        then $fGetPartial(head($seq), $zero) ()
+        else $f(head($seq), $self(tail($seq), $zero, $f, $fGetPartial, $self))
+},
+
+    $fold-right-sc := function ($seq as item()*,
+                                $zero as item()*,
+                                $f as function(item(), item()*) as item()*,
+                                $fGetPartial as function(*)
+                               ) as item()*
+{
+  $fold-right-sc-inner($seq, $zero, $f, $fGetPartial, $fold-right-sc-inner)
+},
+               
+   $fAdd := function($x, $y)  {$x + $y},
+   $fMult  := function($x, $y)  {if($x eq 0) then 0 else $x * $y},
+   $fMultGetPartial := function($x, $y)
+   {
+     if($x eq 0)
+       then function() {0}
+       else function($z) {$x * $z}
+   }
+   
+   return
+     $fold-right-sc((1 to 1000000) ! function($x){$x - 3}(.), 
+                     1, 
+                     $fMult, $fMultGetPartial)
+                     
