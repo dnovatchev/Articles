@@ -22,11 +22,11 @@ declare record f:generator
       let $gen := if(not(?initialized)) then ?moveNext()
                     else .
        return
-         if(?endReached or $n le 0) then f:emptyGenerator()
+         if($gen?endReached or $n le 0) then $gen?emptyGenerator()
           else
-            let $current := ?getCurrent(),
+            let $current := $gen?getCurrent(),
                 $newResultGen := map:put(., "getCurrent", %method fn(){$current}),
-                $nextGen := ?moveNext()
+                $nextGen := $gen?moveNext()
              return
                if($nextGen?endReached) then $newResultGen
                  else
@@ -35,18 +35,61 @@ declare record f:generator
                      return
                        $newResultGen2
       },
+      
+      takeWhile := %method fn($pred as function(item()*) as xs:boolean)
+      {
+        let $gen := if(not(?initialized)) then ?moveNext()
+                      else .
+         return
+           if($gen?endReached) then $gen?emptyGenerator()
+            else      
+              let $current := $gen?getCurrent()
+                return
+                  if(not($pred($current))) then $gen?emptyGenerator()
+                  else
+                    let $newResultGen := map:put(., "getCurrent", %method fn(){$current}),
+                        $nextGen := ?moveNext()
+                     return
+                        if($nextGen?endReached) then $newResultGen
+                        else
+                          let $newResultGen2 :=  map:put($newResultGen, "moveNext", %method fn() {$nextGen?takeWhile($pred)}) 
+                           return $newResultGen2  
+      },
      
      skip := %method fn($n as xs:integer) 
      {
             if($n eq 0) then .
-              else if(?endReached) then f:emptyGenerator()
+              else if(?endReached) then ?emptyGenerator()
               else 
                 let $gen := if(not(?initialized)) then ?moveNext()
                              else .
                   return
                     if(not($gen?endReached)) then $gen?moveNext()?skip($n -1)
-                      else f:emptyGenerator()                 
+                      else $gen?emptyGenerator()                 
 
+     },
+     
+     skipWhile := %method fn($pred as function(item()*) as xs:boolean)
+     {
+        let $gen := if(not(?initialized)) then ?moveNext()
+                      else .
+         return
+           if($gen?endReached) then $gen?emptyGenerator()
+            else
+              let $current := $gen?getCurrent()
+               return
+                 if(not($pred($current))) then $gen
+                  else $gen?moveNext()?skipWhile($pred)                    
+     },
+     
+     some := %method fn()
+     {
+       ?initialized and not(?endReached)
+     },
+     
+     someWhere := %method fn($pred)
+     {
+       ?filter($pred)?some()
      },
      
      subrange := %method fn($m as xs:integer, $n as xs:integer)
@@ -64,7 +107,7 @@ declare record f:generator
       let $gen := if(not(?initialized)) then ?moveNext()
                     else .        
        return
-         if(?endReached) then f:emptyGenerator()
+         if(?endReached) then ?emptyGenerator()
           else
            let $current := $fun(?getCurrent()),
                 $newResultGen := map:put(., "getCurrent", %method fn(){$current}),
@@ -84,7 +127,7 @@ declare record f:generator
             $gen2 := if(not(?initialized)) then $gen2?moveNext()
                     else $gen2
          return
-            if(?endReached or $gen2?endReached) then f:emptyGenerator() 
+            if(?endReached or $gen2?endReached) then ?emptyGenerator() 
              else  
                let $current := $fun(?getCurrent(), $gen2?getCurrent()),
                    $newResultGen := map:put(., "getCurrent", %method fn(){$current}),
@@ -101,47 +144,56 @@ declare record f:generator
 
       filter := %method fn($pred as function(item()*) as xs:boolean)
       {
-             let $getNextGoodGen := function($gen as map(*), 
+             if(?initialized and ?endReached) then ?emptyGenerator()
+              else
+                let $getNextGoodGen := function($gen as map(*), 
                                              $pred as function(item()*) as xs:boolean)
-                 {
-                    let $mapResult := 
-                          while-do(
-                                   $gen,
-                                   function($gen) { not($pred($gen?getCurrent()))},
-                                   function($gen) { $gen?moveNext() }
-                                   )   
-                    return $mapResult                     
-                 },
-                 
-                 $gen := if(?initialized) then . 
-                           else ?moveNext(),
-                 $nextGoodGen := $getNextGoodGen($gen, $pred)
-              return  
-                $nextGoodGen => map:put("moveNext", 
-                                        %method fn() 
-                                          {
-                                            let $nextGoodGen := $getNextGoodGen(?inputGen?moveNext(), $pred)
-                                              return
-                                              map:put(map:put($nextGoodGen, "moveNext", %method fn() {$nextGoodGen?moveNext()?filter($pred)}),
-                                                              "inputGen", $nextGoodGen
-                                                             )
-                                          }
-                                       )
-                               =>
-                                 map:put("inputGen", $nextGoodGen)
+                   {
+                      if($gen?endReached) then $gen?emptyGenerator()
+                      else
+                        let $mapResult := 
+                              while-do(
+                                       $gen,
+                                       function($x) { not($x?endReached) and not($pred($x?getCurrent()))},
+                                       function($x) { $x?moveNext() }
+                                       )   
+                        return 
+                          if($mapResult?endReached) then $gen?emptyGenerator()
+                           else $mapResult                  
+                   },
+                   
+                   $gen := if(?initialized) then . 
+                             else ?moveNext(),
+                   $nextGoodGen := $getNextGoodGen($gen, $pred)
+                return
+                  if($nextGoodGen?endReached) then $gen?emptyGenerator()
+                  else
+                    $nextGoodGen => map:put("moveNext", 
+                                            %method fn() 
+                                              {
+                                                let $nextGoodGen := $getNextGoodGen(?inputGen?moveNext(), $pred)
+                                                  return
+                                                    if($nextGoodGen?endReached) then $nextGoodGen?emptyGenerator()
+                                                    else
+                                                      map:put(map:put($nextGoodGen, "moveNext", %method fn() {$nextGoodGen?moveNext()?filter($pred)}),
+                                                                      "inputGen", $nextGoodGen
+                                                              )
+                                               }
+                                           )
+                                   =>
+                                     map:put("inputGen", $nextGoodGen)
         },     
         
-        toSequence  := %method fn() {?toArray() => array:items()},            
+        toSequence := %method fn() {?toArray() => array:items()},     
+        
+        emptyGenerator := %method fn() 
+        {
+          . => map:put("initialized", true()) => map:put("endReached", true())
+            => map:put("getCurrent", %method fn() {error((),"getCurrent() called on an emptyGenerator")})
+            => map:put("moveNext", %method fn() {error((),"moveNext() called on an emptyGenerator")})
+        },      
      *
    );
-   
-declare record f:emptyGenerator
-(
-  initialized := true(),
-  endReached := true(),
-  getCurrent := %method fn() {error("getCurrent() called on f:emptyGenerator")},
-  moveNext := %method fn() {error("moveNext() called on f:emptyGenerator")}
-);  
 
 let $gen2ToInf := f:generator(initialized := true(), endReached := false(), 
                               getCurrent := %method fn(){?last +1},
@@ -200,5 +252,17 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "================", 
     $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?toArray(),  
     "================", 
-    $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?toSequence()  
+    $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?toSequence(),
+    "================", 
+    $gen2ToInf?takeWhile(fn($n){$n < 11})?toArray(), 
+    "================", 
+    $gen2ToInf?skipWhile(fn($n){$n < 11})?take(5)?toArray(),
+    "================",
+     $gen2ToInf?some(),
+     let $empty := $gen2ToInf?emptyGenerator()
+      return $empty?some(),
+    "================",
+     $gen2ToInf?take(5)?filter(fn($n){$n ge 7})?some(),  
+     $gen2ToInf?take(5)?someWhere(fn($n){$n ge 7}), 
+     $gen2ToInf?take(5)?someWhere(fn($n){$n ge 6}) 
   )
