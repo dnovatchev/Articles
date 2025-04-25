@@ -177,6 +177,26 @@ declare record f:generator
            $resultGen            
       },
 
+      append := %method fn($value as item()*)
+      {
+        let $gen := if(not(?initialized)) then ?moveNext()
+                    else .,
+            $genSingle := $gen => map:put("getCurrent", %method fn(){$value})
+                               => map:put("moveNext", %method fn(){?emptyGenerator()})
+         return
+           $gen?concat($genSingle)                    
+      },
+      
+      prepend := %method fn($value as item()*)
+      {
+                let $gen := if(not(?initialized)) then ?moveNext()
+                    else .,
+            $genSingle := $gen => map:put("getCurrent", %method fn(){$value})
+                               => map:put("moveNext", %method fn(){?emptyGenerator()})
+         return
+           $genSingle?concat($gen)  
+      },
+
       filter := %method fn($pred as function(item()*) as xs:boolean)
       {
              if(?initialized and ?endReached) then ?emptyGenerator()
@@ -322,6 +342,9 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
       $gen2ToInf?take(10)?chunk(4)?toArray(),
       $gen2ToInf?take(10)?chunk(4)?for-each(fn($arr){array:size($arr)})?toArray(),
      "================", 
-     $gen2ToInf?subrange(10, 15)?concat($gen2ToInf?subrange(1, 9))?toArray()
+     $gen2ToInf?subrange(10, 15)?concat($gen2ToInf?subrange(1, 9))?toArray(),
+     "================", 
+     $gen2ToInf?subrange(1, 5)?append(101)?toArray(), 
+     $gen2ToInf?subrange(1, 5)?prepend(101)?toArray()
                     
   )
