@@ -244,6 +244,53 @@ declare record f:generator
                                      map:put("inputGen", $nextGoodGen)
         },     
         
+        makeGenerator := %method fn($provider as function(*))
+        {
+         let $gen := if(not(?initialized)) then ?moveNext()
+                    else .,
+              $nextDataItemGetter := $provider(0),
+              $nextGen := if(not($nextDataItemGetter instance of function(*))) then $gen?emptyGenerator()  
+                           else $gen?emptyGenerator()
+                            => map:put("numDataItems", 1)
+                            => map:put("current", $nextDataItemGetter())
+                            => map:put("endReached", false())
+                            => map:put("getCurrent", %method fn() {?current})
+                            => map:put("moveNext",  
+                                       %method fn() 
+                                        {
+                                          let $nextDataItemGetter := $provider(?numDataItems)
+                                            return
+                                              if(not($nextDataItemGetter instance of function(*))) then ?emptyGenerator()
+                                              else
+                                                . => map:put("current", $nextDataItemGetter())
+                                                  => map:put("numDataItems", ?numDataItems + 1)
+                                        }
+                                       )
+           return $nextGen                                                  
+        },
+        
+        makeGeneratorFromArray := %method fn($input as array(*))
+        {
+          let $size := array:size($input),
+              $arrayProvider := fn($ind as xs:integer)
+                                {
+                                  if($ind +1 gt $size) then -1
+                                   else fn(){$input($ind + 1)}
+                                }
+           return ?makeGenerator($arrayProvider)
+        },
+        
+        makeGeneratorFromSequence := %method fn($input as item()*)
+        {
+          let $size := count($input),
+              $seqProvider := fn($ind as xs:integer)
+                                {
+                                  if($ind +1 gt $size) then -1
+                                   else fn(){$input[$ind + 1]}
+                                }
+           return ?makeGenerator($seqProvider)
+        },
+        
         toSequence := %method fn() {?toArray() => array:items()},     
         
         emptyGenerator := %method fn() 
@@ -352,5 +399,13 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
      $gen2ToInf?subrange(1, 5)?append(101)?toArray(), 
      $gen2ToInf?subrange(1, 5)?prepend(101)?toArray(),
      "================", 
-     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(6, 10))?toArray()                    
+     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(6, 10))?toArray(),
+     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?toArray(),
+     "================", 
+     $gen2ToInf?makeGenerator(fn($numGenerated as xs:integer)
+                                 {if($numGenerated le 9) then fn() {$numGenerated + 1} else -1} 
+                             )?toArray(),
+     "================", 
+      $gen2ToInf?makeGeneratorFromArray([1, 4, 9, 16, 25])?toArray(),
+      $gen2ToInf?makeGeneratorFromSequence((1, 8, 27, 64, 125))?toArray()                                     
   )
