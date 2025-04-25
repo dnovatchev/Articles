@@ -155,6 +155,11 @@ declare record f:generator
                            $newResultGen2    
                     
       },
+      
+      zip := %method fn($gen2 as f:generator)
+      {
+        ?for-each-pair($gen2, fn($x1, $x2){[$x1, $x2]})
+      },
 
       concat := %method fn($gen2 as f:generator)
       {
@@ -345,6 +350,7 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
      $gen2ToInf?subrange(10, 15)?concat($gen2ToInf?subrange(1, 9))?toArray(),
      "================", 
      $gen2ToInf?subrange(1, 5)?append(101)?toArray(), 
-     $gen2ToInf?subrange(1, 5)?prepend(101)?toArray()
-                    
+     $gen2ToInf?subrange(1, 5)?prepend(101)?toArray(),
+     "================", 
+     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(6, 10))?toArray()                    
   )
