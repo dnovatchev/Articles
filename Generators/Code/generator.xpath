@@ -56,17 +56,24 @@ declare record f:generator
                            return $newResultGen2  
       },
      
-     skip := %method fn($n as xs:integer) 
+     skipStrict := %method fn($n as xs:integer, $issueErrorOnEmpty as xs:boolean) 
      {
             if($n eq 0) then .
-              else if(?endReached) then ?emptyGenerator()
+              else if(?endReached) 
+                     then if($issueErrorOnEmpty)
+                           then error((), "Input Generator too-short") 
+                           else ?emptyGenerator()
               else 
                 let $gen := if(not(?initialized)) then ?moveNext()
                              else .
                   return
-                    if(not($gen?endReached)) then $gen?moveNext()?skip($n -1)
+                    if(not($gen?endReached)) then $gen?moveNext()?skipStrict($n -1, $issueErrorOnEmpty)
                       else $gen?emptyGenerator()                 
 
+     },
+     skip := %method fn($n as xs:integer) 
+     {
+       ?skipStrict($n, false())
      },
      
      skipWhile := %method fn($pred as function(item()*) as xs:boolean)
@@ -152,8 +159,7 @@ declare record f:generator
                      else
                        let $newResultGen2 := map:put($newResultGen, "moveNext", %method fn(){$nextGen1?for-each-pair($nextGen2, $fun)})
                          return
-                           $newResultGen2    
-                    
+                           $newResultGen2                        
       },
       
       zip := %method fn($gen2 as f:generator)
@@ -200,6 +206,15 @@ declare record f:generator
                                => map:put("moveNext", %method fn(){?emptyGenerator()})
          return
            $genSingle?concat($gen)  
+      },
+      
+      insertAt := %method fn($pos as xs:nonNegativeInteger, $value as item()*)
+      {
+        let $genTail := ?skipStrict($pos - 1, true())
+         return
+            if($pos gt 1)
+              then ?take($pos - 1)?append($value)?concat($genTail)
+              else $genTail?prepend($value)               
       },
 
       filter := %method fn($pred as function(item()*) as xs:boolean)
@@ -372,6 +387,7 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
      $gen2ToInf?take(5)?filter(fn($n){$n ge 7})?some(),  
      $gen2ToInf?take(5)?someWhere(fn($n){$n ge 7}), 
      $gen2ToInf?take(5)?someWhere(fn($n){$n ge 6}),
+     $gen2ToInf?someWhere(fn($n){$n ge 100}),
      "================",
      $gen2ToInf?take(10)?take(11)?toArray(),
      $gen2ToInf?take(10)?skip(10)?toArray(),
@@ -407,5 +423,10 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
                              )?toArray(),
      "================", 
       $gen2ToInf?makeGeneratorFromArray([1, 4, 9, 16, 25])?toArray(),
-      $gen2ToInf?makeGeneratorFromSequence((1, 8, 27, 64, 125))?toArray()                                     
+      $gen2ToInf?makeGeneratorFromSequence((1, 8, 27, 64, 125))?toArray(), 
+     "================", 
+      $gen2ToInf?take(10)?insertAt(3, "XYZ")?toArray(),
+      $gen2ToInf?take(10)?insertAt(1, "ABC")?toArray(),
+      $gen2ToInf?take(10)?insertAt(11, "PQR")?toArray()  
+     (: , $gen2ToInf?take(10)?insertAt(12, "GHI")?toArray() :)  (:  Must raise error :)                                                  
   )
