@@ -216,6 +216,28 @@ declare record f:generator
               then ?take($pos - 1)?append($value)?concat($genTail)
               else $genTail?prepend($value)               
       },
+      
+      removeAt := %method fn($pos as xs:nonNegativeInteger)
+      {
+        let $genTail := ?skipStrict($pos, true())
+          return
+            if($pos gt 1)
+              then ?take($pos - 1)?concat($genTail)
+              else $genTail
+      },
+      
+      replace := %method fn($funIsMatching as function(item()*) as xs:boolean, $replacement as item()*)
+      {
+        if(not(?someWhere($funIsMatching))) then .
+          else
+            let $funNotMatching := fn($x) {not($funIsMatching($x))},
+                $startGen := ?takeWhile($funNotMatching),
+                $endGen := ?skipWhile($funNotMatching)?skip(1)
+              return
+                if(not($startGen?some())) 
+                  then $endGen?prepend($replacement)
+                  else $startGen?append($replacement)?concat($endGen)                  
+      },
 
       filter := %method fn($pred as function(item()*) as xs:boolean)
       {
@@ -427,6 +449,20 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
      "================", 
       $gen2ToInf?take(10)?insertAt(3, "XYZ")?toArray(),
       $gen2ToInf?take(10)?insertAt(1, "ABC")?toArray(),
-      $gen2ToInf?take(10)?insertAt(11, "PQR")?toArray()  
-     (: , $gen2ToInf?take(10)?insertAt(12, "GHI")?toArray() :)  (:  Must raise error :)                                                  
+      $gen2ToInf?take(10)?insertAt(11, "PQR")?toArray(), 
+     (: , $gen2ToInf?take(10)?insertAt(12, "GHI")?toArray() :)  (:  Must raise error "Input Generator too-short." :) 
+     "================", 
+      $gen2ToInf?take(10)?removeAt(3)?toArray(),
+      $gen2ToInf?take(10)?removeAt(1)?toArray(),
+      $gen2ToInf?take(10)?removeAt(10)?toArray(),
+      (: , $gen2ToInf?take(10)?removeAt(11)?toArray() :)        (:  Must raise error "Input Generator too-short." :) 
+     "================",
+      $gen2ToInf?take(10)?replace(fn($x){$x gt 4}, "Replacement")?toArray(),
+      $gen2ToInf?take(10)?replace(fn($x){$x lt 3}, "Replacement")?toArray(),
+      $gen2ToInf?take(10)?replace(fn($x){$x gt 10}, "Replacement")?toArray(),
+      $gen2ToInf?take(10)?replace(fn($x){$x gt 11}, "Replacement")?toArray(),
+      $gen2ToInf?take(10)?replace(fn($x){$x lt 2}, "Replacement")?toArray(),
+      $gen2ToInf?replace(fn($x){$x gt 4}, "Replacement")?take(10)?toArray(),
+      $gen2ToInf?replace(fn($x){$x lt 3}, "Replacement")?take(10)?toArray()
+      (: , $gen2ToInf?replace(fn($x){$x lt 2}, "Replacement")?take(10)?toArray() :)     (: With infinite generators this will loop forever:)                                                   
   )
