@@ -56,7 +56,7 @@ declare record f:generator
                            return $newResultGen2  
       },
      
-     skipStrict := %method fn($n as xs:integer, $issueErrorOnEmpty as xs:boolean) 
+     skipStrict := %method fn($n as xs:nonNegativeInteger, $issueErrorOnEmpty as xs:boolean) 
      {
             if($n eq 0) then .
               else if(?endReached) 
@@ -71,7 +71,7 @@ declare record f:generator
                       else $gen?emptyGenerator()                 
 
      },
-     skip := %method fn($n as xs:integer) 
+     skip := %method fn($n as xs:nonNegativeInteger) 
      {
        ?skipStrict($n, false())
      },
@@ -99,12 +99,12 @@ declare record f:generator
        ?filter($pred)?some()
      },
      
-     subrange := %method fn($m as xs:integer, $n as xs:integer)
+     subrange := %method fn($m as xs:positiveInteger, $n as xs:integer)
      {
        ?skip($m - 1)?take($n - $m + 1)
      },
      
-     chunk := %method fn($size as xs:integer)
+     chunk := %method fn($size as xs:positiveInteger)
      {
         let $gen := if(not(?initialized)) then ?moveNext()
                       else .
@@ -121,7 +121,7 @@ declare record f:generator
      head := %method fn() {?take(1)?getCurrent()},
      tail := %method fn() {?skip(1)},
      
-     at := %method fn($ind) {?subrange($ind, $ind + 1)?getCurrent()},
+     at := %method fn($ind) {?subrange($ind, $ind)?getCurrent()},
            
      for-each := %method fn($fun as function(*))
      {
@@ -145,7 +145,7 @@ declare record f:generator
       {
         let $gen := if(not(?initialized)) then ?moveNext()
                     else .,
-            $gen2 := if(not(?initialized)) then $gen2?moveNext()
+            $gen2 := if(not($gen2?initialized)) then $gen2?moveNext()
                     else $gen2
          return
             if(?endReached or $gen2?endReached) then ?emptyGenerator() 
@@ -171,7 +171,7 @@ declare record f:generator
       {
         let $gen := if(not(?initialized)) then ?moveNext()
                     else .,
-            $gen2 := if(not(?initialized)) then $gen2?moveNext()
+            $gen2 := if(not($gen2?initialized)) then $gen2?moveNext()
                     else $gen2,
             $resultGen := if($gen?endReached) then $gen2
                             else if($gen2?endReached) then $gen
@@ -208,7 +208,7 @@ declare record f:generator
            $genSingle?concat($gen)  
       },
       
-      insertAt := %method fn($pos as xs:nonNegativeInteger, $value as item()*)
+      insertAt := %method fn($pos as xs:positiveInteger, $value as item()*)
       {
         let $genTail := ?skipStrict($pos - 1, true())
          return
