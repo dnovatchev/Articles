@@ -225,7 +225,8 @@ declare record f:generator
               then ?take($pos - 1)?concat($genTail)
               else $genTail
       },
-      
+
+(:      
       replace := %method fn($funIsMatching as function(item()*) as xs:boolean, $replacement as item()*)
       {
         if(not(?someWhere($funIsMatching))) then .
@@ -237,6 +238,31 @@ declare record f:generator
                 if(not($startGen?some())) 
                   then $endGen?prepend($replacement)
                   else $startGen?append($replacement)?concat($endGen)                  
+      },
+:)    
+      replace := %method fn($funIsMatching as function(item()*) as xs:boolean, $replacement as item()*)
+      {
+        if(?endReached) then .
+          else
+            let $current := ?getCurrent()
+              return
+                if($funIsMatching($current))
+                  then let $nextGen := ?moveNext()
+                     return
+                       . => map:put("getCurrent", %method fn() {$replacement})
+                         => map:put("moveNext", %method fn() { $nextGen } 
+                                  )
+                  else (: $current is not the match for replacement :)
+                    let $nextGen := ?moveNext()
+                      return . => map:put("moveNext", 
+                                           %method fn()
+                                           {
+                                             let $intendedReplace := function($z) {$z?replace($funIsMatching, $replacement)}
+                                              return
+                                                if($nextGen?endReached) then $nextGen
+                                                else $intendedReplace($nextGen)
+                                           }
+                                        )
       },
 
       filter := %method fn($pred as function(item()*) as xs:boolean)
@@ -550,8 +576,10 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
       $gen2ToInf?replace(fn($x){$x gt 4}, "Replacement")?take(10)?toArray(),
       "$gen2ToInf?replace(fn($x){$x lt 3}, ""Replacement"")?take(10)?toArray()",
       $gen2ToInf?replace(fn($x){$x lt 3}, "Replacement")?take(10)?toArray()
-      (:
-      , "==>  ==>  ==>  $gen2ToInf?replace2(fn($x){$x lt 2}, ""Replacement"")?take(10)?toArray() <==  <==  <==",
+    (:  
+      Will result in endless loop:
+      
+      , "==>  ==>  ==>  $gen2ToInf?replace(fn($x){$x lt 2}, ""Replacement"")?take(10)?toArray() <==  <==  <==",
       $gen2ToInf?replace2(fn($x){$x lt 2}, "Replacement")?take(10)?toArray() 
-      :)
+    :)
    )

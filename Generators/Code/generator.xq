@@ -222,7 +222,7 @@ declare function gn:removeAt($gen as f:generator, $pos as xs:nonNegativeInteger)
               then gn:concat(gn:take($gen, $pos - 1), $genTail)
               else $genTail
       };      
-
+(:
 declare function gn:replace($gen as f:generator, $funIsMatching as function(item()*) as xs:boolean, $replacement as item()*)
       {
         if(not(gn:someWhere($gen, $funIsMatching))) then $gen
@@ -235,6 +235,31 @@ declare function gn:replace($gen as f:generator, $funIsMatching as function(item
                   then gn:prepend($endGen, $replacement)
                   else gn:concat(gn:append($startGen, $replacement), $endGen)                  
       };  
+:)      
+declare function gn:replace($gen as f:generator, $funIsMatching as function(item()*) as xs:boolean, $replacement as item()*)
+      {
+        if($gen?endReached) then $gen
+          else
+            let $current := $gen?getCurrent()
+              return
+                if($funIsMatching($current))
+                  then let $nextGen := $gen?moveNext()
+                     return
+                       $gen => map:put("getCurrent", %method fn() {$replacement})
+                            => map:put("moveNext", %method fn() { $nextGen } 
+                                  )
+                  else (: $current is not the match for replacement :)
+                    let $nextGen := $gen?moveNext()
+                      return $gen => map:put("moveNext", 
+                                           %method fn()
+                                           {
+                                             let $intendedReplace := function($z) {$z?replace($funIsMatching, $replacement)}
+                                              return
+                                                if($nextGen?endReached) then $nextGen
+                                                else $intendedReplace($nextGen)
+                                           }
+                                        )
+      };      
       
 declare function gn:filter($gen as f:generator, $pred as function(item()*) as xs:boolean)
 {
