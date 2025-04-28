@@ -306,6 +306,28 @@ declare record f:generator
                                    =>
                                      map:put("inputGen", $nextGoodGen)
         },     
+        fold-left := %method fn($init as item()*, $action as fn(*))
+        {
+          if(?endReached) then $init
+            else ?tail()?fold-left($action($init, ?getCurrent()), $action)
+        },
+        
+        fold-right := %method fn($init as item()*, $action as fn(*))
+        {
+          if(?endReached) then $init
+            else $action(?head(), ?tail()?fold-right($init, $action))
+        },
+        
+        fold-lazy := %method fn($init as item()*, $action as fn(*), $shortCircuitProvider as function(*))
+        {
+          if(?endReached) then $init
+          else
+           let $current := ?getCurrent()
+             return
+               if(function-arity($shortCircuitProvider($current, $init)) eq 0)
+                 then $shortCircuitProvider($current, $init)()
+                 else $action($current, ?moveNext()?fold-lazy($init, $action, $shortCircuitProvider))
+        },
         
         makeGenerator := %method fn($provider as function(*))
         {
@@ -376,7 +398,8 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
                               options := {"last" : 1}
                              ),
     $double := fn($n) {2*$n},
-    $sum2 := fn($m, $n) {$m + $n}
+    $sum2 := fn($m, $n) {$m + $n},
+    $product := fn($m, $n) {$m * $n}
   return    
   (
     "$gen2ToInf?take(3)?toArray()",
@@ -575,11 +598,38 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
       "$gen2ToInf?replace(fn($x){$x gt 4}, ""Replacement"")?take(10)?toArray()",
       $gen2ToInf?replace(fn($x){$x gt 4}, "Replacement")?take(10)?toArray(),
       "$gen2ToInf?replace(fn($x){$x lt 3}, ""Replacement"")?take(10)?toArray()",
-      $gen2ToInf?replace(fn($x){$x lt 3}, "Replacement")?take(10)?toArray()
+      $gen2ToInf?replace(fn($x){$x lt 3}, "Replacement")?take(10)?toArray(),
     (:  
       Will result in endless loop:
       
       , "==>  ==>  ==>  $gen2ToInf?replace(fn($x){$x lt 2}, ""Replacement"")?take(10)?toArray() <==  <==  <==",
       $gen2ToInf?replace2(fn($x){$x lt 2}, "Replacement")?take(10)?toArray() 
     :)
+    "================",
+    "$gen2ToInf?take(5)?fold-left(0, fn($x, $y){$x + $y})",
+    $gen2ToInf?take(5)?fold-left(0, fn($x, $y){$x + $y}),
+    "================",
+    "$gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y})",
+    $gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y}),
+    "================",
+    let $multShortCircuitProvider := fn($x, $y)
+        {
+          if($x eq 0) then fn(){0}
+            else fn($z) {$x * $z}
+        },
+        $gen-5ToInf := $gen2ToInf?for-each(fn($n){$n -7})
+     return
+     (
+       "let $multShortCircuitProvider := fn($x, $y)
+        {
+          if($x eq 0) then fn(){0}
+            else fn($z) {$x * $z}
+        },
+            $gen-5ToInf := $gen2ToInf?for-each(fn($n){$n -7})
+          return
+            $gen2ToInf?take(5)?fold-lazy(1, $product, $multShortCircuitProvider),
+            $gen-5ToInf?fold-lazy(1, $product, $multShortCircuitProvider)",
+       $gen2ToInf?take(5)?fold-lazy(1, $product, $multShortCircuitProvider),
+       $gen-5ToInf?fold-lazy(1, $product, $multShortCircuitProvider)
+     )
    )
