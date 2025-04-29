@@ -194,6 +194,7 @@ declare record f:generator
                     else .,
             $genSingle := $gen => map:put("getCurrent", %method fn(){$value})
                                => map:put("moveNext", %method fn(){?emptyGenerator()})
+                               => map:put("endReached", false())
          return
            $gen?concat($genSingle)                    
       },
@@ -225,21 +226,7 @@ declare record f:generator
               then ?take($pos - 1)?concat($genTail)
               else $genTail
       },
-
-(:      
-      replace := %method fn($funIsMatching as function(item()*) as xs:boolean, $replacement as item()*)
-      {
-        if(not(?someWhere($funIsMatching))) then .
-          else
-            let $funNotMatching := fn($x) {not($funIsMatching($x))},
-                $startGen := ?takeWhile($funNotMatching),
-                $endGen := ?skipWhile($funNotMatching)?skip(1)
-              return
-                if(not($startGen?some())) 
-                  then $endGen?prepend($replacement)
-                  else $startGen?append($replacement)?concat($endGen)                  
-      },
-:)    
+    
       replace := %method fn($funIsMatching as function(item()*) as xs:boolean, $replacement as item()*)
       {
         if(?endReached) then .
@@ -263,6 +250,15 @@ declare record f:generator
                                                 else $intendedReplace($nextGen)
                                            }
                                         )
+      },
+      
+      reverse := %method fn()
+      {
+        if(?endReached) then ?emptyGenerator()
+          else
+           let $current := ?getCurrent()
+             return
+               ?tail()?reverse()?append($current)
       },
 
       filter := %method fn($pred as function(item()*) as xs:boolean)
@@ -327,6 +323,32 @@ declare record f:generator
                if(function-arity($shortCircuitProvider($current, $init)) eq 0)
                  then $shortCircuitProvider($current, $init)()
                  else $action($current, ?moveNext()?fold-lazy($init, $action, $shortCircuitProvider))
+        },
+        
+        scan-left := %method fn($init as item()*, $action as fn(*))
+        {
+          let $resultGen := ?emptyGenerator() 
+                                => map:put("endReached", false())
+                                => map:put("getCurrent", %method fn(){$init})
+           return
+             if(?endReached) 
+               then $resultGen => map:put("moveNext", %method fn(){?emptyGenerator()})
+               else
+                 let $resultGen := $resultGen => map:put("getCurrent", %method fn(){$init}),
+                     $partialFoldResult := $action($init, ?getCurrent())
+                   return
+                     let $nextGen := ?moveNext()
+                      return
+                        $resultGen => map:put("moveNext", %method fn()
+                                              { 
+                                                  $nextGen?scan-left($partialFoldResult, $action)
+                                               }
+                                              )            
+        },
+      
+        scan-right := %method fn($init as item()*, $action as fn(*))
+        {
+          ?reverse()?scan-left($init, $action)?reverse()                         
         },
         
         makeGenerator := %method fn($provider as function(*))
@@ -606,11 +628,26 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
       $gen2ToInf?replace2(fn($x){$x lt 2}, "Replacement")?take(10)?toArray() 
     :)
     "================",
+    "$gen2ToInf?emptyGenerator()?reverse()?toArray()",
+    $gen2ToInf?emptyGenerator()?reverse()?toArray(),
+    "$gen2ToInf?emptyGenerator()?append(2)?reverse()?toArray()",
+    $gen2ToInf?emptyGenerator()?append(2)?reverse()?toArray(),
+    "$gen2ToInf?take(10)?reverse()?toArray()",
+    $gen2ToInf?take(10)?reverse()?toArray(),
+    "================",
     "$gen2ToInf?take(5)?fold-left(0, fn($x, $y){$x + $y})",
     $gen2ToInf?take(5)?fold-left(0, fn($x, $y){$x + $y}),
     "================",
     "$gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y})",
     $gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y}),
+    "================",
+    "$gen2ToInf?emptyGenerator()?scan-left(0, fn($x, $y){$x + $y})?toArray()",
+    $gen2ToInf?emptyGenerator()?scan-left(0, fn($x, $y){$x + $y})?toArray(),
+    "$gen2ToInf?take(5)?scan-left(0, fn($x, $y){$x + $y})?toArray()",
+    $gen2ToInf?take(5)?scan-left(0, fn($x, $y){$x + $y})?toArray(),
+    "================",
+    "$gen2ToInf?makeGeneratorFromSequence((1 to 10))?scan-right(0, fn($x, $y){$x + $y})?toArray()",
+    $gen2ToInf?makeGeneratorFromSequence((1 to 10))?scan-right(0, fn($x, $y){$x + $y})?toArray(),
     "================",
     let $multShortCircuitProvider := fn($x, $y)
         {
