@@ -577,9 +577,12 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
                               },
                               options := {"last" : 1}
                              ),
+    $genN := $gen2ToInf?for-each(fn($n) {$n - 1}),
+    $gen0toInf := $gen2ToInf?for-each(fn($n) {$n - 2}),
     $double := fn($n) {2*$n},
     $sum2 := fn($m, $n) {$m + $n},
-    $product := fn($m, $n) {$m * $n}    
+    $product := fn($m, $n) {$m * $n},
+    $factorial := fn($n) {fold-left(1 to $n, 1, $product)}    
   return    
   (
     "$gen2ToInf?take(3)?toArray()",
@@ -796,6 +799,10 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "================",
     "$gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y})",
     $gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y}),
+    "================",
+    "==> 1 + $genN?for-each(fn($n){(2*$n + 1) div $factorial(2*$n)})
+             ?take(6)?fold-left(0, fn($x, $y){$x + $y})",
+    1 + $genN?for-each(fn($n){(2*$n + 1) div $factorial(2*$n)})?take(6)?fold-left(0, fn($x, $y){$x + $y}),    
     "================",
     "$gen2ToInf?emptyGenerator()?scan-left(0, fn($x, $y){$x + $y})?toArray()",
     $gen2ToInf?emptyGenerator()?scan-left(0, fn($x, $y){$x + $y})?toArray(),

@@ -121,7 +121,7 @@ declare record f:generator
      head := %method fn() {?take(1)?getCurrent()},
      tail := %method fn() {?skip(1)},
      
-     at := %method fn($ind) {?subrange($ind, $ind)?getCurrent()},
+     at := %method fn($ind as xs:nonNegativeInteger) {?subrange($ind, $ind)?getCurrent()},
            
      for-each := %method fn($fun as function(*))
      {
@@ -203,8 +203,8 @@ declare record f:generator
       {
                 let $gen := if(not(?initialized)) then ?moveNext()
                     else .,
-            $genSingle := $gen => map:put("getCurrent", %method fn(){$value})
-                               => map:put("moveNext", %method fn(){?emptyGenerator()})
+                    $genSingle := $gen => map:put("getCurrent", %method fn(){$value})
+                                       => map:put("moveNext", %method fn(){?emptyGenerator()})
          return
            $genSingle?concat($gen)  
       },
@@ -419,9 +419,12 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
                               },
                               options := {"last" : 1}
                              ),
+    $genN := $gen2ToInf?for-each(fn($n) {$n - 1}),
+    $gen0toInf := $gen2ToInf?for-each(fn($n) {$n - 2}),
     $double := fn($n) {2*$n},
     $sum2 := fn($m, $n) {$m + $n},
-    $product := fn($m, $n) {$m * $n}
+    $product := fn($m, $n) {$m * $n},
+    $factorial := fn($n) {fold-left(1 to $n, 1, $product)}
   return    
   (
     "$gen2ToInf?take(3)?toArray()",
@@ -507,8 +510,7 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "
      ==> $gen2ToInf?skipWhile(fn($n){$n < 2})?skip(1)",
     $gen2ToInf?skipWhile(fn($n){$n < 2})?skip(1),
-(:    $gen2ToInf?skipWhile(fn($x) {$x ge 2}) :) (: ?skip(1) :)
-    "================", 
+(:    $gen2ToInf?skipWhile(fn($x) {$x ge 2}) :) (: ?skip(1) :) 
     "$gen2ToInf?some()",
      $gen2ToInf?some(),
      "let $empty := $gen2ToInf?emptyGenerator()
@@ -617,7 +619,7 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
       $gen2ToInf?take(10)?replace(fn($x){$x gt 11}, "Replacement")?toArray(),
       "$gen2ToInf?take(10)?replace(fn($x){$x lt 2}, ""Replacement"")?toArray()",
       $gen2ToInf?take(10)?replace(fn($x){$x lt 2}, "Replacement")?toArray(),
-      "$gen2ToInf?replace(fn($x){$x gt 4}, ""Replacement"")?take(10)?toArray()",
+      "==> $gen2ToInf?replace(fn($x){$x gt 4}, ""Replacement"")?take(10)?toArray()",
       $gen2ToInf?replace(fn($x){$x gt 4}, "Replacement")?take(10)?toArray(),
       "$gen2ToInf?replace(fn($x){$x lt 3}, ""Replacement"")?take(10)?toArray()",
       $gen2ToInf?replace(fn($x){$x lt 3}, "Replacement")?take(10)?toArray(),
@@ -641,6 +643,11 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "$gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y})",
     $gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y}),
     "================",
+    "==> 1 + $genN?for-each(fn($n){(2*$n + 1) div $factorial(2*$n)})
+             ?take(6)?fold-left(0, fn($x, $y){$x + $y})",
+    1 + $genN?for-each(fn($n){(2*$n + 1) div $factorial(2*$n)})?take(6)?fold-left(0, fn($x, $y){$x + $y}),
+    "================",
+    
     "$gen2ToInf?emptyGenerator()?scan-left(0, fn($x, $y){$x + $y})?toArray()",
     $gen2ToInf?emptyGenerator()?scan-left(0, fn($x, $y){$x + $y})?toArray(),
     "$gen2ToInf?take(5)?scan-left(0, fn($x, $y){$x + $y})?toArray()",
