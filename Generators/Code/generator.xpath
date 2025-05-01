@@ -128,16 +128,25 @@ declare record f:generator
        let $gen := if(not(?initialized)) then ?moveNext()
                      else .
         return
-          if(?endReached) then false()
+          if($gen?endReached) then false()
            else
-             let $current := ?getCurrent(),
+             let $current := $gen?getCurrent(),
                  $comparisonResult := 
-                   if($value instance of function(*)) 
+                   if($value instance of function(*) and not($value instance of array(*) or $value instance of map(*))
+                  and not($current instance of array(*) or $current instance of map(*))
+                     ) 
                      then $current instance of function(*) and function-identity($current) eq function-identity($value)
-                     else deep-equal($current, $value)
+                     else 
+                       if($current instance of array(*) and $value instance of array(*)
+                        or $current instance of map(*) and $value instance of map(*)
+                          ) then deep-equal($current, $value)
+                            else if($current instance of xs:anyAtomicType and $value instance of xs:anyAtomicType)
+                                   then compare($current, $value) eq 0
+                                   else if(empty($current) and empty($value)) then true()
+                                   else false()
                return
                  if($comparisonResult) then true()
-                   else ?moveNext()?contains($value)
+                   else $gen?moveNext()?contains($value)
      },
            
      for-each := %method fn($fun as function(*))

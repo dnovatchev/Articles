@@ -122,19 +122,28 @@ declare function gn:at($gen as f:generator, $ind) {gn:subrange($gen, $ind, $ind)
 
 declare function gn:contains($gen as f:generator, $value as item()*)
      {
-       let $gen := if(not($gen?initialized)) then $gen?moveNext()
+       let $gen := if(not($gen?initialized)) then ?moveNext()
                      else $gen
         return
           if($gen?endReached) then false()
            else
              let $current := $gen?getCurrent(),
                  $comparisonResult := 
-                   if($value instance of function(*)) 
+                   if($value instance of function(*) and not($value instance of array(*) or $value instance of map(*))
+                  and not($current instance of array(*) or $current instance of map(*))
+                     ) 
                      then $current instance of function(*) and function-identity($current) eq function-identity($value)
-                     else deep-equal($current, $value)
+                     else 
+                       if($current instance of array(*) and $value instance of array(*)
+                        or $current instance of map(*) and $value instance of map(*)
+                          ) then deep-equal($current, $value)
+                            else if($current instance of xs:anyAtomicType and $value instance of xs:anyAtomicType)
+                                   then compare($current, $value) eq 0
+                                   else if(empty($current) and empty($value)) then true()
+                                   else false()
                return
                  if($comparisonResult) then true()
-                   else gn:contains($gen?moveNext(), $value)
+                   else $gen?moveNext()?contains($value)
      };
 
 declare function gn:for-each($gen as f:generator, $fun as function(*))
@@ -829,7 +838,7 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "$genN?take(10)?contains(11)",        
     $genN?take(10)?contains(11),
     "==> $genN?contains(15)",    
-    $genN?contains(15),        
+    $genN?contains(15),       
     "================",
     "$gen2ToInf?take(5)?fold-left(0, fn($x, $y){$x + $y})",
     $gen2ToInf?take(5)?fold-left(0, fn($x, $y){$x + $y}),
@@ -838,7 +847,7 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     $gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y}),
     "================",
         "==> 1 + $genN?for-each(fn($n){(2 * $n + 1) div $factorial(2*xs:decimal($n)})
-             ?take(6)?fold-left(0, fn($x, $y){$x + $y})",
+             ?take(8)?fold-left(0, fn($x, $y){$x + $y})",
     1 + $genN?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?fold-left(0, fn($x, $y){$x + $y}),    
     "================",
     "$gen2ToInf?emptyGenerator()?scan-left(0, fn($x, $y){$x + $y})?toArray()",
