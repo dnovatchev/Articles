@@ -143,6 +143,7 @@ declare record f:generator
                             else if($current instance of xs:anyAtomicType and $value instance of xs:anyAtomicType)
                                    then compare($current, $value) eq 0
                                    else if(empty($current) and empty($value)) then true()
+                                   else if(count($current) eq count($value)) then deep-equal($current, $value)
                                    else false()
                return
                  if($comparisonResult) then true()
@@ -524,18 +525,18 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "$gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?toSequence()",
     $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?toSequence(),
     "================", 
-    "$gen2ToInf?takeWhile(fn($n){$n < 11})?toArray()",
-    $gen2ToInf?takeWhile(fn($n){$n < 11})?toArray(), 
-    "$gen2ToInf?takeWhile(fn($n){$n < 2})?toArray()",
-    $gen2ToInf?takeWhile(fn($n){$n < 2})?toArray(), 
+    "$gen2ToInf?takeWhile(fn($n){$n lt 11})?toArray()",
+    $gen2ToInf?takeWhile(fn($n){$n lt 11})?toArray(), 
+    "$gen2ToInf?takeWhile(fn($n){$n lt 2})?toArray()",
+    $gen2ToInf?takeWhile(fn($n){$n lt 2})?toArray(), 
     "================", 
-    "$gen2ToInf?skipWhile(fn($n){$n < 11})?take(5)?toArray()",
-    $gen2ToInf?skipWhile(fn($n){$n < 11})?take(5)?toArray(),
-    "==> $gen2ToInf?skipWhile(fn($n){$n < 2})",
-    $gen2ToInf?skipWhile(fn($n){$n < 2}),
+    "$gen2ToInf?skipWhile(fn($n){$n lt 11})?take(5)?toArray()",
+    $gen2ToInf?skipWhile(fn($n){$n lt 11})?take(5)?toArray(),
+    "==> $gen2ToInf?skipWhile(fn($n){$n lt 2})",
+    $gen2ToInf?skipWhile(fn($n){$n lt 2}),
     "
-     ==> $gen2ToInf?skipWhile(fn($n){$n < 2})?skip(1)",
-    $gen2ToInf?skipWhile(fn($n){$n < 2})?skip(1),
+     ==> $gen2ToInf?skipWhile(fn($n){$n lt 2})?skip(1)",
+    $gen2ToInf?skipWhile(fn($n){$n lt 2})?skip(1),
 (:    $gen2ToInf?skipWhile(fn($x) {$x ge 2}) :) (: ?skip(1) :) 
     "$gen2ToInf?some()",
      $gen2ToInf?some(),

@@ -140,6 +140,7 @@ declare function gn:contains($gen as f:generator, $value as item()*)
                             else if($current instance of xs:anyAtomicType and $value instance of xs:anyAtomicType)
                                    then compare($current, $value) eq 0
                                    else if(empty($current) and empty($value)) then true()
+                                   else if(count($current) eq count($value)) then deep-equal($current, $value)
                                    else false()
                return
                  if($comparisonResult) then true()
@@ -687,20 +688,19 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "$gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?toSequence()",
     $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?toSequence(),
     "================", 
-    "$gen2ToInf?takeWhile(fn($n){$n < 11})?toArray()",
-    $gen2ToInf?takeWhile(fn($n){$n < 11})?toArray(), 
-    "$gen2ToInf?takeWhile(fn($n){$n < 2})?toArray()",
-    $gen2ToInf?takeWhile(fn($n){$n < 2})?toArray(), 
+    "$gen2ToInf?takeWhile(fn($n){$n lt 11})?toArray()",
+    $gen2ToInf?takeWhile(fn($n){$n lt 11})?toArray(), 
+    "$gen2ToInf?takeWhile(fn($n){$n lt 2})?toArray()",
+    $gen2ToInf?takeWhile(fn($n){$n lt 2})?toArray(), 
     "================", 
-    "$gen2ToInf?skipWhile(fn($n){$n < 11})?take(5)?toArray()",
-    $gen2ToInf?skipWhile(fn($n){$n < 11})?take(5)?toArray(),
-    "==> $gen2ToInf?skipWhile(fn($n){$n < 2})",
-    $gen2ToInf?skipWhile(fn($n){$n < 2}),
+    "$gen2ToInf?skipWhile(fn($n){$n lt 11})?take(5)?toArray()",
+    $gen2ToInf?skipWhile(fn($n){$n lt 11})?take(5)?toArray(),
+    "==> $gen2ToInf?skipWhile(fn($n){$n lt 2})",
+    $gen2ToInf?skipWhile(fn($n){$n lt 2}),
     "
-     ==> $gen2ToInf?skipWhile(fn($n){$n < 2})?skip(1)",
-    $gen2ToInf?skipWhile(fn($n){$n < 2})?skip(1),
-(:    $gen2ToInf?skipWhile(fn($x) {$x ge 2}) :) (: ?skip(1) :)
-    "================", 
+     ==> $gen2ToInf?skipWhile(fn($n){$n lt 2})?skip(1)",
+    $gen2ToInf?skipWhile(fn($n){$n lt 2})?skip(1),
+(:    $gen2ToInf?skipWhile(fn($x) {$x ge 2}) :) (: ?skip(1) :) 
     "$gen2ToInf?some()",
      $gen2ToInf?some(),
      "let $empty := $gen2ToInf?emptyGenerator()
@@ -809,21 +809,23 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
       $gen2ToInf?take(10)?replace(fn($x){$x gt 11}, "Replacement")?toArray(),
       "$gen2ToInf?take(10)?replace(fn($x){$x lt 2}, ""Replacement"")?toArray()",
       $gen2ToInf?take(10)?replace(fn($x){$x lt 2}, "Replacement")?toArray(),
-      "$gen2ToInf?replace(fn($x){$x gt 4}, ""Replacement"")?take(10)?toArray()",
+      "==> $gen2ToInf?replace(fn($x){$x gt 4}, ""Replacement"")?take(10)?toArray()",
       $gen2ToInf?replace(fn($x){$x gt 4}, "Replacement")?take(10)?toArray(),
       "$gen2ToInf?replace(fn($x){$x lt 3}, ""Replacement"")?take(10)?toArray()",
       $gen2ToInf?replace(fn($x){$x lt 3}, "Replacement")?take(10)?toArray(),
-      (:
-      , "==>  ==>  ==>  $gen2ToInf?replace2(fn($x){$x lt 2}, ""Replacement"")?take(10)?toArray() <==  <==  <==",
+    (:  
+      Will result in endless loop:
+      
+      , "==>  ==>  ==>  $gen2ToInf?replace(fn($x){$x lt 2}, ""Replacement"")?take(10)?toArray() <==  <==  <==",
       $gen2ToInf?replace2(fn($x){$x lt 2}, "Replacement")?take(10)?toArray() 
-      :)
+    :)
     "================",
     "$gen2ToInf?emptyGenerator()?reverse()?toArray()",
     $gen2ToInf?emptyGenerator()?reverse()?toArray(),
     "$gen2ToInf?emptyGenerator()?append(2)?reverse()?toArray()",
     $gen2ToInf?emptyGenerator()?append(2)?reverse()?toArray(),
     "$gen2ToInf?take(10)?reverse()?toArray()",
-    $gen2ToInf?take(10)?reverse()?toArray(),   
+    $gen2ToInf?take(10)?reverse()?toArray(),
     "================",
     "$genN?take(10)?contains(3)",
     $genN?take(10)?contains(3),
@@ -838,7 +840,7 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "$genN?take(10)?contains(11)",        
     $genN?take(10)?contains(11),
     "==> $genN?contains(15)",    
-    $genN?contains(15),       
+    $genN?contains(15), 
     "================",
     "$gen2ToInf?take(5)?fold-left(0, fn($x, $y){$x + $y})",
     $gen2ToInf?take(5)?fold-left(0, fn($x, $y){$x + $y}),
@@ -846,16 +848,15 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "$gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y})",
     $gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y}),
     "================",
-        "==> 1 + $genN?for-each(fn($n){(2 * $n + 1) div $factorial(2*xs:decimal($n)})
+    "==> 1 + $genN?for-each(fn($n){(2 * $n + 1) div $factorial(2*xs:decimal($n)})
              ?take(8)?fold-left(0, fn($x, $y){$x + $y})",
-    1 + $genN?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?fold-left(0, fn($x, $y){$x + $y}),    
+    1 + $genN?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?fold-left(0, fn($x, $y){$x + $y}),
     "================",
+    
     "$gen2ToInf?emptyGenerator()?scan-left(0, fn($x, $y){$x + $y})?toArray()",
     $gen2ToInf?emptyGenerator()?scan-left(0, fn($x, $y){$x + $y})?toArray(),
     "$gen2ToInf?take(5)?scan-left(0, fn($x, $y){$x + $y})?toArray()",
     $gen2ToInf?take(5)?scan-left(0, fn($x, $y){$x + $y})?toArray(),
-    "$gen2ToInf?makeGeneratorFromSequence((1 to 10))?scan-left(0, fn($x, $y){$x + $y})?toArray()",
-    $gen2ToInf?makeGeneratorFromSequence((1 to 10))?scan-left(0, fn($x, $y){$x + $y})?toArray(),   
     "================",
     "$gen2ToInf?makeGeneratorFromSequence((1 to 10))?scan-right(0, fn($x, $y){$x + $y})?toArray()",
     $gen2ToInf?makeGeneratorFromSequence((1 to 10))?scan-right(0, fn($x, $y){$x + $y})?toArray(),
@@ -879,5 +880,5 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
             $gen-5ToInf?fold-lazy(1, $product, $multShortCircuitProvider)",
        $gen2ToInf?take(5)?fold-lazy(1, $product, $multShortCircuitProvider),
        $gen-5ToInf?fold-lazy(1, $product, $multShortCircuitProvider)
-     )              
+     )
    )
