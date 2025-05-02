@@ -127,24 +127,10 @@ declare function gn:contains($gen as f:generator, $value as item()*)
         return
           if($gen?endReached) then false()
            else
-             let $current := $gen?getCurrent(),
-                 $comparisonResult := 
-                   if($value instance of function(*) and not($value instance of array(*) or $value instance of map(*))
-                  and not($current instance of array(*) or $current instance of map(*))
-                     ) 
-                     then $current instance of function(*) and function-identity($current) eq function-identity($value)
-                     else 
-                       if($current instance of array(*) and $value instance of array(*)
-                        or $current instance of map(*) and $value instance of map(*)
-                          ) then deep-equal($current, $value)
-                            else if($current instance of xs:anyAtomicType and $value instance of xs:anyAtomicType)
-                                   then compare($current, $value) eq 0
-                                   else if(empty($current) and empty($value)) then true()
-                                   else if(count($current) eq count($value)) then deep-equal($current, $value)
-                                   else false()
+             let $current := $gen?getCurrent()
                return
-                 if($comparisonResult) then true()
-                   else $gen?moveNext()?contains($value)
+                  if(deep-equal($current, $value)) then true()
+                   else gn:contains($gen?moveNext(), $value) 
      };
 
 declare function gn:for-each($gen as f:generator, $fun as function(*))
