@@ -408,7 +408,43 @@ declare function gn:makeGeneratorFromSequence($gen as f:generator, $input as ite
    return gn:makeGenerator($gen, $seqProvider)
 };   
 
-declare function gn:toSequence($gen as f:generator) {gn:toArray($gen) => array:items()};     
+declare function gn:makeGeneratorFromMap($gen as f:generator, $inputMap as map(*))
+        {
+          let $keys := map:keys($inputMap),
+              $size := map:size($inputMap),
+              $mapProvider := fn($ind as xs:integer)
+              {
+                if($ind +1 gt $size) then -1
+                  else fn() 
+                       {
+                         let $key := $keys[$ind + 1]
+                          return
+                            ( $key, [ $inputMap($key) ])
+                       }
+              }
+            return
+              $gen?makeGenerator($mapProvider)
+        };
+
+declare function gn:toSequence($gen as f:generator) {gn:toArray($gen) => array:items()}; 
+
+declare function gn:toMap($gen as f:generator) 
+        {
+          let $genPairs := $gen?for-each(fn($x)
+                           {
+                             let $key := head($x),
+                                 $tail := tail($x),
+                                 $value := if($tail instance of array(*)) 
+                                           then for $ind in 1 to array:size($tail)
+                                                 return $tail($ind)
+                                           else $tail
+                             return
+                               map:pair($key, $value)
+                           }
+                         ) 
+           return
+             map:of-pairs($genPairs?toSequence())
+        };    
 
 declare function gn:emptyGenerator($gen as f:generator) 
 {
@@ -575,8 +611,15 @@ declare record f:generator
         {
           gn:makeGeneratorFromSequence(., $input)
         },
+
+        makeGeneratorFromMap := %method fn($inputMap as map(*))
+        {
+          gn:makeGeneratorFromMap(., $inputMap)
+        },
         
-        toSequence := %method fn() {gn:toSequence(.)},     
+        toSequence := %method fn() {gn:toSequence(.)},
+        
+        toMap := %method fn() {gn:toMap(.)},       
         
         emptyGenerator := %method fn() 
         {
@@ -752,6 +795,8 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
      $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?toArray(),
      "==>  $gen2ToInf?zip($gen2ToInf?skip(5))?take(10)?toArray()",
      $gen2ToInf?zip($gen2ToInf?skip(5))?take(10)?toArray(),
+     "$gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?zip($gen2ToInf?subrange(30, 40))?toArray()",
+     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?zip($gen2ToInf?subrange(30, 40))?toArray(),     
      "================", 
      "$gen2ToInf?makeGenerator(fn($numGenerated as xs:integer)
                                  {if($numGenerated le 9) then fn() {$numGenerated + 1} else -1} 
@@ -866,5 +911,21 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
             $gen-5ToInf?fold-lazy(1, $product, $multShortCircuitProvider)",
        $gen2ToInf?take(5)?fold-lazy(1, $product, $multShortCircuitProvider),
        $gen-5ToInf?fold-lazy(1, $product, $multShortCircuitProvider)
-     )
+     ),
+     "===============",
+     "     let $myMap := {'John': 22, 'Ann': 28, 'Peter': 31}
+      return 
+        $gen2ToInf?makeGeneratorFromMap($myMap)?toArray()",
+     let $myMap := {"John": 22, "Ann": 28, "Peter": 31}
+      return 
+        $gen2ToInf?makeGeneratorFromMap($myMap)?toArray(),
+     "===============",        
+     "let $myMap := {'John': 22, 'Ann': 28, 'Peter': 31},
+          $genMap := $gen2ToInf?makeGeneratorFromMap($myMap)
+      return
+        $genMap?toMap()" ,
+     let $myMap := {"John": 22, "Ann": 28, "Peter": 31},
+         $genMap := $gen2ToInf?makeGeneratorFromMap($myMap)
+      return
+        $genMap?toMap()         
    )
