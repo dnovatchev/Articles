@@ -100,6 +100,11 @@ declare function gn:someWhere($gen as f:generator, $pred)
  gn:some(gn:filter($gen, $pred))
 };
 
+declare function gn:firstWhere($gen as f:generator, $pred)
+{
+ gn:head(gn:filter($gen, $pred))
+};
+
 declare function gn:chunk($gen as f:generator, $size as xs:positiveInteger)
 {
   let $gen := if(not($gen?initialized)) then $gen?moveNext()
@@ -497,6 +502,11 @@ declare record f:generator
        gn:someWhere(., $pred)
      },
      
+     firstWhere := %method fn($pred)
+    {
+     gn:firstWhere(., $pred)
+    },
+     
      subrange := %method fn($m as xs:integer, $n as xs:integer)
      {
        gn:subrange(., $m, $n)
@@ -628,6 +638,7 @@ declare record f:generator
      *
    );
 
+
 let $gen2ToInf := f:generator(initialized := true(), endReached := false(), 
                               getCurrent := %method fn(){?last +1},
                               moveNext := %method fn()
@@ -643,7 +654,7 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     $double := fn($n) {2*$n},
     $sum2 := fn($m, $n) {$m + $n},
     $product := fn($m, $n) {$m * $n},
-    $factorial := fn($n) {fold-left(1 to $n, 1, $product)}    
+    $factorial := fn($n) {fold-left(1 to $n, 1, $product)}
   return    
   (
     "$gen2ToInf?take(3)?toArray()",
@@ -796,7 +807,7 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
      "==>  $gen2ToInf?zip($gen2ToInf?skip(5))?take(10)?toArray()",
      $gen2ToInf?zip($gen2ToInf?skip(5))?take(10)?toArray(),
      "$gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?zip($gen2ToInf?subrange(30, 40))?toArray()",
-     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?zip($gen2ToInf?subrange(30, 40))?toArray(),     
+     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?zip($gen2ToInf?subrange(30, 40))?toArray(),
      "================", 
      "$gen2ToInf?makeGenerator(fn($numGenerated as xs:integer)
                                  {if($numGenerated le 9) then fn() {$numGenerated + 1} else -1} 
@@ -879,9 +890,21 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "$gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y})",
     $gen2ToInf?take(5)?fold-right(0, fn($x, $y){$x + $y}),
     "================",
-    "==> 1 + $genN?for-each(fn($n){(2 * $n + 1) div $factorial(2*xs:decimal($n)})
+    "==> $gen0toInf?for-each(fn($n){(2 * $n + 1) div $factorial(2*xs:decimal($n)})
              ?take(8)?fold-left(0, fn($x, $y){$x + $y})",
-    1 + $genN?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?fold-left(0, fn($x, $y){$x + $y}),
+    $gen0toInf?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?fold-left(0, fn($x, $y){$x + $y}),
+    "$gen0toInf?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?scan-left(0, fn($x, $y){$x + $y})?toArray()",
+    $gen0toInf?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?scan-left(0, fn($x, $y){$x + $y})?toArray(),
+    "let $genSeqE := $gen0toInf?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?scan-left(0, fn($x, $y){$x + $y}),
+    $genSeqE-Next := $genSeqE?tail(),
+    $genZipped := $genSeqE?zip($genSeqE-Next)
+ return
+    $genZipped?firstWhere(fn($pair){abs($pair(1) - $pair(2)) lt 0.000001})(2)",
+    let $genSeqE := $gen0toInf?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?scan-left(0, fn($x, $y){$x + $y}),
+        $genSeqE-Next := $genSeqE?tail(),
+        $genZipped := $genSeqE?zip($genSeqE-Next)
+      return
+        $genZipped?firstWhere(fn($pair){abs($pair(1) - $pair(2)) lt 0.000001})(2), 
     "================",
     
     "$gen2ToInf?emptyGenerator()?scan-left(0, fn($x, $y){$x + $y})?toArray()",
@@ -927,5 +950,7 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
      let $myMap := {"John": 22, "Ann": 28, "Peter": 31},
          $genMap := $gen2ToInf?makeGeneratorFromMap($myMap)
       return
-        $genMap?toMap()         
+        $genMap?toMap(),
+     "$gen2ToInf?take(10)?toMap()",
+     $gen2ToInf?take(10)?toMap()     
    )
