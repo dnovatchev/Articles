@@ -1,6 +1,6 @@
 declare namespace f = "http://www.w3.org/2005/xpath-functions-2025";
 declare namespace gn = "http://www.w3.org/2005/xpath-functions-2025/generator";
-declare function gn:toArray($gen as f:generator)
+declare function gn:toArray($gen as f:generator) as array(*)
 {
    while-do( [$gen, []],
           function( $inArr) 
@@ -13,7 +13,7 @@ declare function gn:toArray($gen as f:generator)
  ) (2)
 };
 
-declare function gn:take($gen as f:generator, $n as xs:integer)
+declare function gn:take($gen as f:generator, $n as xs:integer) as f:generator
 {
   let $gen := if(not($gen?initialized)) then $gen?moveNext()
                 else $gen
@@ -32,7 +32,7 @@ declare function gn:take($gen as f:generator, $n as xs:integer)
                    $newResultGen2  
 };
 
-declare function gn:takeWhile($gen as f:generator, $pred as function(item()*) as xs:boolean)
+declare function gn:takeWhile($gen as f:generator, $pred as function(item()*) as xs:boolean) as f:generator
 {
   let $gen := if(not($gen?initialized)) then $gen?moveNext()
                 else $gen
@@ -52,7 +52,7 @@ declare function gn:takeWhile($gen as f:generator, $pred as function(item()*) as
                      return $newResultGen2    
 };
 
-declare function gn:skipStrict($gen as f:generator, $n as xs:nonNegativeInteger, $issueErrorOnEmpty as xs:boolean)
+declare function gn:skipStrict($gen as f:generator, $n as xs:nonNegativeInteger, $issueErrorOnEmpty as xs:boolean) as f:generator
 {
   if($n eq 0) then $gen
     else if($gen?endReached) 
@@ -67,12 +67,12 @@ declare function gn:skipStrict($gen as f:generator, $n as xs:nonNegativeInteger,
             else gn:emptyGenerator($gen)    
 };
 
-declare function gn:skip($gen as f:generator, $n as xs:nonNegativeInteger)
+declare function gn:skip($gen as f:generator, $n as xs:nonNegativeInteger) as f:generator
 {
   gn:skipStrict($gen, $n, false())
 };
 
-declare function gn:skipWhile($gen as f:generator, $pred as function(item()*) as xs:boolean)
+declare function gn:skipWhile($gen as f:generator, $pred as function(item()*) as xs:boolean) as f:generator
 {
   let $gen := if(not($gen?initialized)) then $gen?moveNext()
                 else $gen
@@ -85,27 +85,27 @@ declare function gn:skipWhile($gen as f:generator, $pred as function(item()*) as
             else gn:skipWhile($gen?moveNext(), $pred)  
 };
 
-declare function gn:subrange($gen as f:generator, $m as xs:positiveInteger, $n as xs:positiveInteger)
+declare function gn:subrange($gen as f:generator, $m as xs:positiveInteger, $n as xs:positiveInteger) as f:generator
 {
  gn:take(gn:skip($gen, $m - 1), $n - $m + 1)  
 };
 
-declare function gn:some($gen as f:generator)
+declare function gn:some($gen as f:generator) as xs:boolean
 {
  $gen?initialized and not($gen?endReached)  
 };
 
-declare function gn:someWhere($gen as f:generator, $pred)
+declare function gn:someWhere($gen as f:generator, $pred) as xs:boolean
 {
  gn:some(gn:filter($gen, $pred))
 };
 
-declare function gn:firstWhere($gen as f:generator, $pred)
+declare function gn:firstWhere($gen as f:generator, $pred) as item()*
 {
  gn:head(gn:filter($gen, $pred))
 };
 
-declare function gn:chunk($gen as f:generator, $size as xs:positiveInteger)
+declare function gn:chunk($gen as f:generator, $size as xs:positiveInteger) as f:generator
 {
   let $gen := if(not($gen?initialized)) then $gen?moveNext()
                 else $gen
@@ -119,13 +119,13 @@ declare function gn:chunk($gen as f:generator, $size as xs:positiveInteger)
         return $resultGen  
 };
 
-declare function gn:head($gen as f:generator) {gn:take($gen, 1)?getCurrent()};
+declare function gn:head($gen as f:generator) as item()* {gn:take($gen, 1)?getCurrent()};
 
-declare function gn:tail($gen as f:generator) {gn:skip($gen, 1)};
+declare function gn:tail($gen as f:generator) as f:generator {gn:skip($gen, 1)};
 
-declare function gn:at($gen as f:generator, $ind) {gn:subrange($gen, $ind, $ind)?getCurrent()};
+declare function gn:at($gen as f:generator, $ind) as item()* {gn:subrange($gen, $ind, $ind)?getCurrent()};
 
-declare function gn:contains($gen as f:generator, $value as item()*)
+declare function gn:contains($gen as f:generator, $value as item()*) as xs:boolean
      {
        let $gen := if(not($gen?initialized)) then ?moveNext()
                      else $gen
@@ -138,7 +138,7 @@ declare function gn:contains($gen as f:generator, $value as item()*)
                    else gn:contains($gen?moveNext(), $value) 
      };
 
-declare function gn:for-each($gen as f:generator, $fun as function(*))
+declare function gn:for-each($gen as f:generator, $fun as function(*)) as f:generator
 {
   let $gen := if(not($gen?initialized)) then $gen?moveNext()
                 else $gen        
@@ -156,7 +156,7 @@ declare function gn:for-each($gen as f:generator, $fun as function(*))
                    $newResultGen2         
 };
 
-declare function gn:for-each-pair($gen as f:generator, $gen2 as f:generator, $fun as function(*))
+declare function gn:for-each-pair($gen as f:generator, $gen2 as f:generator, $fun as function(*)) as f:generator
 {
   let $gen := if(not($gen?initialized)) then $gen?moveNext()
               else $gen,
@@ -177,12 +177,12 @@ declare function gn:for-each-pair($gen as f:generator, $gen2 as f:generator, $fu
                      $newResultGen2      
 };
 
-declare function gn:zip($gen as f:generator, $gen2 as f:generator)
+declare function gn:zip($gen as f:generator, $gen2 as f:generator) as f:generator
 {
   gn:for-each-pair($gen, $gen2, fn($x1, $x2){[$x1, $x2]})
 };
 
-declare function gn:concat($gen as f:generator, $gen2 as f:generator)
+declare function gn:concat($gen as f:generator, $gen2 as f:generator) as f:generator
       {
         let $gen := if(not($gen?initialized)) then $gen?moveNext()
                     else $gen,
@@ -203,7 +203,7 @@ declare function gn:concat($gen as f:generator, $gen2 as f:generator)
            $resultGen            
       };
       
-declare function gn:append($gen as f:generator, $value as item()*)
+declare function gn:append($gen as f:generator, $value as item()*) as f:generator
       {
         let $gen := if(not($gen?initialized)) then $gen?moveNext()
                     else $gen,
@@ -214,7 +214,7 @@ declare function gn:append($gen as f:generator, $value as item()*)
            gn:concat($gen, $genSingle)                    
       };  
       
-declare function gn:prepend($gen as f:generator, $value as item()*)
+declare function gn:prepend($gen as f:generator, $value as item()*) as f:generator
       {
         let $gen := if(not($gen?initialized)) then $gen?moveNext()
             else $gen,
@@ -224,7 +224,7 @@ declare function gn:prepend($gen as f:generator, $value as item()*)
            gn:concat($genSingle, $gen)  
       };    
       
-declare function gn:insertAt($gen as f:generator, $pos as xs:positiveInteger, $value as item()*)
+declare function gn:insertAt($gen as f:generator, $pos as xs:positiveInteger, $value as item()*) as f:generator
       {
         let $genTail := gn:skipStrict($gen, $pos - 1, true())
          return
@@ -233,7 +233,7 @@ declare function gn:insertAt($gen as f:generator, $pos as xs:positiveInteger, $v
               else gn:prepend($genTail, $value)               
       };     
       
-declare function gn:removeAt($gen as f:generator, $pos as xs:nonNegativeInteger)
+declare function gn:removeAt($gen as f:generator, $pos as xs:nonNegativeInteger) as f:generator
       {
         let $genTail := gn:skipStrict($gen, $pos, true())
           return
@@ -242,7 +242,7 @@ declare function gn:removeAt($gen as f:generator, $pos as xs:nonNegativeInteger)
               else $genTail
       };      
      
-declare function gn:replace($gen as f:generator, $funIsMatching as function(item()*) as xs:boolean, $replacement as item()*)
+declare function gn:replace($gen as f:generator, $funIsMatching as function(item()*) as xs:boolean, $replacement as item()*) as f:generator
       {
         if($gen?endReached) then $gen
           else
@@ -267,7 +267,7 @@ declare function gn:replace($gen as f:generator, $funIsMatching as function(item
                                         )
       };      
       
-declare function gn:reverse($gen as f:generator)
+declare function gn:reverse($gen as f:generator) as f:generator
 {
   if($gen?endReached) then gn:emptyGenerator($gen)
     else
@@ -276,7 +276,7 @@ declare function gn:reverse($gen as f:generator)
          gn:append(gn:reverse(gn:tail($gen)), $current)
 };      
       
-declare function gn:filter($gen as f:generator, $pred as function(item()*) as xs:boolean)
+declare function gn:filter($gen as f:generator, $pred as function(item()*) as xs:boolean) as f:generator
 {
  if($gen?initialized and $gen?endReached) then gn:emptyGenerator($gen)
   else
@@ -317,19 +317,19 @@ declare function gn:filter($gen as f:generator, $pred as function(item()*) as xs
                        => map:put("inputGen", $nextGoodGen)
   }; 
   
-declare function gn:fold-left($gen as f:generator, $init as item()*, $action as fn(*))
+declare function gn:fold-left($gen as f:generator, $init as item()*, $action as fn(*)) as item()*
 {
   if($gen?endReached) then $init
     else gn:fold-left(gn:tail($gen), $action($init, $gen?getCurrent()), $action)
 };
 
-declare function gn:fold-right($gen as f:generator, $init as item()*, $action as fn(*))
+declare function gn:fold-right($gen as f:generator, $init as item()*, $action as fn(*)) as item()*
 {
   if($gen?endReached) then $init
     else $action(gn:head($gen), gn:fold-right(gn:tail($gen), $init, $action))
 };
 
-declare function gn:fold-lazy($gen as f:generator, $init as item()*, $action as fn(*), $shortCircuitProvider as function(*))
+declare function gn:fold-lazy($gen as f:generator, $init as item()*, $action as fn(*), $shortCircuitProvider as function(*)) as item()*
 {
   if($gen?endReached) then $init
   else
@@ -340,7 +340,7 @@ declare function gn:fold-lazy($gen as f:generator, $init as item()*, $action as 
          else $action($current, gn:fold-lazy($gen?moveNext(), $init, $action, $shortCircuitProvider))
 };
 
-declare function gn:scan-left($gen as f:generator, $init as item()*, $action as fn(*))
+declare function gn:scan-left($gen as f:generator, $init as item()*, $action as fn(*)) as f:generator
 {
   let $resultGen := $gen?emptyGenerator() 
                         => map:put("endReached", false())
@@ -361,12 +361,12 @@ declare function gn:scan-left($gen as f:generator, $init as item()*, $action as 
                                       )            
 };
 
-declare function gn:scan-right($gen as f:generator, $init as item()*, $action as fn(*))
+declare function gn:scan-right($gen as f:generator, $init as item()*, $action as fn(*)) as f:generator
 {
   gn:reverse(gn:scan-left(gn:reverse($gen), $init, $action))                         
 };
 
-declare function gn:makeGenerator($gen as f:generator, $provider as function(*))
+declare function gn:makeGenerator($gen as f:generator, $provider as function(*)) as f:generator
 {
  let $gen := if(not($gen?initialized)) then $gen?moveNext()
             else $gen,
@@ -391,7 +391,7 @@ declare function gn:makeGenerator($gen as f:generator, $provider as function(*))
    return $nextGen                                                  
 };   
 
-declare function gn:makeGeneratorFromArray($gen as f:generator, $input as array(*))
+declare function gn:makeGeneratorFromArray($gen as f:generator, $input as array(*)) as f:generator
 {
   let $size := array:size($input),
       $arrayProvider := fn($ind as xs:integer)
@@ -402,7 +402,7 @@ declare function gn:makeGeneratorFromArray($gen as f:generator, $input as array(
    return gn:makeGenerator($gen, $arrayProvider)
 };  
 
-declare function gn:makeGeneratorFromSequence($gen as f:generator, $input as item()*)
+declare function gn:makeGeneratorFromSequence($gen as f:generator, $input as item()*) as f:generator
 {
   let $size := count($input),
       $seqProvider := fn($ind as xs:integer)
@@ -413,7 +413,7 @@ declare function gn:makeGeneratorFromSequence($gen as f:generator, $input as ite
    return gn:makeGenerator($gen, $seqProvider)
 };   
 
-declare function gn:makeGeneratorFromMap($gen as f:generator, $inputMap as map(*))
+declare function gn:makeGeneratorFromMap($gen as f:generator, $inputMap as map(*)) as f:generator
         {
           let $keys := map:keys($inputMap),
               $size := map:size($inputMap),
@@ -431,9 +431,9 @@ declare function gn:makeGeneratorFromMap($gen as f:generator, $inputMap as map(*
               $gen?makeGenerator($mapProvider)
         };
 
-declare function gn:toSequence($gen as f:generator) {gn:toArray($gen) => array:items()}; 
+declare function gn:toSequence($gen as f:generator) as item()* {gn:toArray($gen) => array:items()}; 
 
-declare function gn:toMap($gen as f:generator) 
+declare function gn:toMap($gen as f:generator) as map(*)
         {
           let $genPairs := $gen?for-each(fn($x)
                            {
@@ -451,7 +451,7 @@ declare function gn:toMap($gen as f:generator)
              map:of-pairs($genPairs?toSequence())
         };    
 
-declare function gn:emptyGenerator($gen as f:generator) 
+declare function gn:emptyGenerator($gen as f:generator) as f:generator 
 {
   $gen => map:put("initialized", true()) => map:put("endReached", true())
     => map:put("getCurrent", %method fn() {error((),"getCurrent() called on an emptyGenerator")})
@@ -468,170 +468,170 @@ declare record f:generator
         gn:toArray(.)
      },
      
-     take := %method fn($n as xs:integer) 
+     take := %method fn($n as xs:integer) as f:generator
      {
         gn:take(., $n)
      },
       
-      takeWhile := %method fn($pred as function(item()*) as xs:boolean)
+      takeWhile := %method fn($pred as function(item()*) as xs:boolean) as f:generator
       {
          gn:takeWhile(., $pred) 
       },
      
-     skipStrict := %method fn($n as xs:integer, $issueErrorOnEmpty as xs:boolean) 
+     skipStrict := %method fn($n as xs:integer, $issueErrorOnEmpty as xs:boolean) as f:generator
      {
         gn:skipStrict(., $n, $issueErrorOnEmpty)
      },
-     skip := %method fn($n as xs:integer) 
+     skip := %method fn($n as xs:integer) as f:generator
      {
        gn:skip(., $n)
      },
      
-     skipWhile := %method fn($pred as function(item()*) as xs:boolean)
+     skipWhile := %method fn($pred as function(item()*) as xs:boolean) as f:generator
      {
        gn:skipWhile(., $pred)                 
      },
      
-     some := %method fn()
+     some := %method fn() as xs:boolean
      {
        gn:some(.)
      },
      
-     someWhere := %method fn($pred)
+     someWhere := %method fn($pred) as xs:boolean
      {
        gn:someWhere(., $pred)
      },
      
-     firstWhere := %method fn($pred)
+     firstWhere := %method fn($pred) as item()*
     {
      gn:firstWhere(., $pred)
     },
      
-     subrange := %method fn($m as xs:integer, $n as xs:integer)
+     subrange := %method fn($m as xs:integer, $n as xs:integer) as f:generator
      {
        gn:subrange(., $m, $n)
      },
      
-     chunk := %method fn($size as xs:integer)
+     chunk := %method fn($size as xs:integer) as f:generator
      {
        gn:chunk(., $size)
      },
      
-     head := %method fn() {gn:head(.)},
-     tail := %method fn() {gn:tail(.)},
+     head := %method fn() as item()* {gn:head(.)},
+     tail := %method fn() as f:generator {gn:tail(.)},
      
-     at := %method fn($ind) {gn:at(., $ind)},
+     at := %method fn($ind) as item()* {gn:at(., $ind)},
      
-     contains := %method fn($value as item()*)
+     contains := %method fn($value as item()*) as xs:boolean
      {
        gn:contains(., $value)
      },
            
-     for-each := %method fn($fun as function(*))
+     for-each := %method fn($fun as function(*)) as f:generator
      {
        gn:for-each(., $fun)                 
       },
       
-      for-each-pair := %method fn($gen2 as f:generator, $fun as function(*))
+      for-each-pair := %method fn($gen2 as f:generator, $fun as function(*)) as f:generator
       {
         gn:for-each-pair(., $gen2, $fun)                    
       },
       
-      zip := %method fn($gen2 as f:generator)
+      zip := %method fn($gen2 as f:generator) as f:generator
       {
         gn:for-each-pair(., $gen2, fn($x1, $x2){[$x1, $x2]})
       },
 
-      concat := %method fn($gen2 as f:generator)
+      concat := %method fn($gen2 as f:generator) as f:generator
       {
         gn:concat(., $gen2)           
       },
 
-      append := %method fn($value as item()*)
+      append := %method fn($value as item()*) as f:generator
       {
         gn:append(., $value)                    
       },
       
-      prepend := %method fn($value as item()*)
+      prepend := %method fn($value as item()*) as f:generator
       {
         gn:prepend(., $value)
       },
       
-      insertAt := %method fn($pos as xs:nonNegativeInteger, $value as item()*)
+      insertAt := %method fn($pos as xs:nonNegativeInteger, $value as item()*) as f:generator
       {
         gn:insertAt(., $pos, $value)               
       },
       
-      removeAt := %method fn($pos as xs:nonNegativeInteger)
+      removeAt := %method fn($pos as xs:nonNegativeInteger) as f:generator
       {
         gn:removeAt(., $pos)
       },
       
-      replace := %method fn($funIsMatching as function(item()*) as xs:boolean, $replacement as item()*)
+      replace := %method fn($funIsMatching as function(item()*) as xs:boolean, $replacement as item()*) as f:generator
       {
         gn:replace(., $funIsMatching, $replacement)                  
       },
       
-      reverse := %method fn()
+      reverse := %method fn() as f:generator
       {
         gn:reverse(.)
       },
 
-      filter := %method fn($pred as function(item()*) as xs:boolean)
+      filter := %method fn($pred as function(item()*) as xs:boolean) as f:generator
       {
         gn:filter(., $pred)
       },   
       
-      fold-left := %method fn($init as item()*, $action as fn(*))
+      fold-left := %method fn($init as item()*, $action as fn(*)) as item()*
       {
         gn:fold-left(., $init, $action)
       },
         
-      fold-right := %method fn($init as item()*, $action as fn(*))
+      fold-right := %method fn($init as item()*, $action as fn(*)) as item()*
       {
         gn:fold-right(., $init, $action)
       },
       
-      fold-lazy := %method fn($init as item()*, $action as fn(*), $shortCircuitProvider as function(*))
+      fold-lazy := %method fn($init as item()*, $action as fn(*), $shortCircuitProvider as function(*)) as item()*
       {
         gn:fold-lazy(., $init, $action, $shortCircuitProvider)
       },
       
-      scan-left := %method fn($init as item()*, $action as fn(*))
+      scan-left := %method fn($init as item()*, $action as fn(*)) as f:generator
       {
         gn:scan-left(., $init, $action)
       },
 
-      scan-right := %method fn($init as item()*, $action as fn(*))
+      scan-right := %method fn($init as item()*, $action as fn(*)) as f:generator
       {
         gn:scan-right(., $init, $action)
       },
         
-      makeGenerator := %method fn($provider as function(*))
+      makeGenerator := %method fn($provider as function(*)) as f:generator
       {
         gn:makeGenerator(., $provider)                                             
       },
         
-        makeGeneratorFromArray := %method fn($input as array(*))
+        makeGeneratorFromArray := %method fn($input as array(*)) as f:generator
         {
           gn:makeGeneratorFromArray(., $input)
         },
         
-        makeGeneratorFromSequence := %method fn($input as item()*)
+        makeGeneratorFromSequence := %method fn($input as item()*) as f:generator
         {
           gn:makeGeneratorFromSequence(., $input)
         },
 
-        makeGeneratorFromMap := %method fn($inputMap as map(*))
+        makeGeneratorFromMap := %method fn($inputMap as map(*)) as f:generator
         {
           gn:makeGeneratorFromMap(., $inputMap)
         },
         
-        toSequence := %method fn() {gn:toSequence(.)},
+        toSequence := %method fn() as item()* {gn:toSequence(.)},
         
-        toMap := %method fn() {gn:toMap(.)},       
+        toMap := %method fn() as map(*) {gn:toMap(.)},       
         
-        emptyGenerator := %method fn() 
+        emptyGenerator := %method fn() as f:generator
         {
           gn:emptyGenerator(.)
         },      

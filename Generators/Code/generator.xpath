@@ -4,7 +4,7 @@ declare record f:generator
      endReached as xs:boolean,
      getCurrent as %method fn() as item()*,
      moveNext as %method fn(*) (: as f:generator, :),
-     toArray := %method fn()
+     toArray := %method fn() as array(*)
      {
        while-do( [., []],
                 function( $inArr) 
@@ -17,7 +17,7 @@ declare record f:generator
        ) (2)
      },
      
-     take := %method fn($n as xs:integer) 
+     take := %method fn($n as xs:integer) as f:generator
      {
       let $gen := if(not(?initialized)) then ?moveNext()
                     else .
@@ -36,7 +36,7 @@ declare record f:generator
                        $newResultGen2
       },
       
-      takeWhile := %method fn($pred as function(item()*) as xs:boolean)
+      takeWhile := %method fn($pred as function(item()*) as xs:boolean) as f:generator
       {
         let $gen := if(not(?initialized)) then ?moveNext()
                       else .
@@ -56,7 +56,7 @@ declare record f:generator
                            return $newResultGen2  
       },
      
-     skipStrict := %method fn($n as xs:nonNegativeInteger, $issueErrorOnEmpty as xs:boolean) 
+     skipStrict := %method fn($n as xs:nonNegativeInteger, $issueErrorOnEmpty as xs:boolean) as f:generator
      {
             if($n eq 0) then .
               else if(?endReached) 
@@ -71,12 +71,12 @@ declare record f:generator
                       else $gen?emptyGenerator()                 
 
      },
-     skip := %method fn($n as xs:nonNegativeInteger) 
+     skip := %method fn($n as xs:nonNegativeInteger) as f:generator
      {
        ?skipStrict($n, false())
      },
      
-     skipWhile := %method fn($pred as function(item()*) as xs:boolean)
+     skipWhile := %method fn($pred as function(item()*) as xs:boolean) as f:generator
      {
         let $gen := if(not(?initialized)) then ?moveNext()
                       else .
@@ -89,27 +89,27 @@ declare record f:generator
                   else $gen?moveNext()?skipWhile($pred)                    
      },
      
-     some := %method fn()
+     some := %method fn() as xs:boolean
      {
        ?initialized and not(?endReached)
      },
      
-     someWhere := %method fn($pred)
+     someWhere := %method fn($pred) as xs:boolean
      {
        ?filter($pred)?some()
      },
      
-     firstWhere := %method fn($pred)
+     firstWhere := %method fn($pred) as item()*
      {
        ?filter($pred)?head()
      },     
      
-     subrange := %method fn($m as xs:positiveInteger, $n as xs:integer)
+     subrange := %method fn($m as xs:positiveInteger, $n as xs:integer) as f:generator
      {
        ?skip($m - 1)?take($n - $m + 1)
      },
      
-     chunk := %method fn($size as xs:positiveInteger)
+     chunk := %method fn($size as xs:positiveInteger) as f:generator
      {
         let $gen := if(not(?initialized)) then ?moveNext()
                       else .
@@ -123,12 +123,12 @@ declare record f:generator
               return $resultGen
      },
      
-     head := %method fn() {?take(1)?getCurrent()},
-     tail := %method fn() {?skip(1)},
+     head := %method fn() as item()* {?take(1)?getCurrent()},
+     tail := %method fn() as f:generator {?skip(1)},
      
-     at := %method fn($ind as xs:nonNegativeInteger) {?subrange($ind, $ind)?getCurrent()},
+     at := %method fn($ind as xs:nonNegativeInteger) as item()* {?subrange($ind, $ind)?getCurrent()},
      
-     contains %method fn($value as item()*)
+     contains %method fn($value as item()*) as xs:boolean
      {
        let $gen := if(not(?initialized)) then ?moveNext()
                      else .
@@ -141,7 +141,7 @@ declare record f:generator
                    else $gen?moveNext()?contains($value)                  
      },
            
-     for-each := %method fn($fun as function(*))
+     for-each := %method fn($fun as function(*)) as f:generator
      {
       let $gen := if(not(?initialized)) then ?moveNext()
                     else .        
@@ -159,7 +159,7 @@ declare record f:generator
                        $newResultGen2                    
       },
       
-      for-each-pair := %method fn($gen2 as f:generator, $fun as function(*))
+      for-each-pair := %method fn($gen2 as f:generator, $fun as function(*)) as f:generator
       {
         let $gen := if(not(?initialized)) then ?moveNext()
                     else .,
@@ -180,12 +180,12 @@ declare record f:generator
                            $newResultGen2                        
       },
       
-      zip := %method fn($gen2 as f:generator)
+      zip := %method fn($gen2 as f:generator) as f:generator
       {
         ?for-each-pair($gen2, fn($x1, $x2){[$x1, $x2]})
       },
 
-      concat := %method fn($gen2 as f:generator)
+      concat := %method fn($gen2 as f:generator) as f:generator
       {
         let $gen := if(not(?initialized)) then ?moveNext()
                     else .,
@@ -206,7 +206,7 @@ declare record f:generator
            $resultGen            
       },
 
-      append := %method fn($value as item()*)
+      append := %method fn($value as item()*) as f:generator
       {
         let $gen := if(not(?initialized)) then ?moveNext()
                     else .,
@@ -217,7 +217,7 @@ declare record f:generator
            $gen?concat($genSingle)                    
       },
       
-      prepend := %method fn($value as item()*)
+      prepend := %method fn($value as item()*) as f:generator
       {
                 let $gen := if(not(?initialized)) then ?moveNext()
                     else .,
@@ -227,7 +227,7 @@ declare record f:generator
            $genSingle?concat($gen)  
       },
       
-      insertAt := %method fn($pos as xs:positiveInteger, $value as item()*)
+      insertAt := %method fn($pos as xs:positiveInteger, $value as item()*) as f:generator
       {
         let $genTail := ?skipStrict($pos - 1, true())
          return
@@ -236,7 +236,7 @@ declare record f:generator
               else $genTail?prepend($value)               
       },
       
-      removeAt := %method fn($pos as xs:nonNegativeInteger)
+      removeAt := %method fn($pos as xs:nonNegativeInteger) as f:generator
       {
         let $genTail := ?skipStrict($pos, true())
           return
@@ -245,7 +245,7 @@ declare record f:generator
               else $genTail
       },
     
-      replace := %method fn($funIsMatching as function(item()*) as xs:boolean, $replacement as item()*)
+      replace := %method fn($funIsMatching as function(item()*) as xs:boolean, $replacement as item()*) as f:generator
       {
         if(?endReached) then .
           else
@@ -270,7 +270,7 @@ declare record f:generator
                                         )
       },
       
-      reverse := %method fn()
+      reverse := %method fn() as f:generator
       {
         if(?endReached) then ?emptyGenerator()
           else
@@ -279,7 +279,7 @@ declare record f:generator
                ?tail()?reverse()?append($current)
       },
 
-      filter := %method fn($pred as function(item()*) as xs:boolean)
+      filter := %method fn($pred as function(item()*) as xs:boolean) as f:generator
       {
              if(?initialized and ?endReached) then ?emptyGenerator()
               else
@@ -320,19 +320,19 @@ declare record f:generator
                                    =>
                                      map:put("inputGen", $nextGoodGen)
         },     
-        fold-left := %method fn($init as item()*, $action as fn(*))
+        fold-left := %method fn($init as item()*, $action as fn(*)) as item()*
         {
           if(?endReached) then $init
             else ?tail()?fold-left($action($init, ?getCurrent()), $action)
         },
         
-        fold-right := %method fn($init as item()*, $action as fn(*))
+        fold-right := %method fn($init as item()*, $action as fn(*)) as item()*
         {
           if(?endReached) then $init
             else $action(?head(), ?tail()?fold-right($init, $action))
         },
         
-        fold-lazy := %method fn($init as item()*, $action as fn(*), $shortCircuitProvider as function(*))
+        fold-lazy := %method fn($init as item()*, $action as fn(*), $shortCircuitProvider as function(*)) as item()*
         {
           if(?endReached) then $init
           else
@@ -343,7 +343,7 @@ declare record f:generator
                  else $action($current, ?moveNext()?fold-lazy($init, $action, $shortCircuitProvider))
         },
         
-        scan-left := %method fn($init as item()*, $action as fn(*))
+        scan-left := %method fn($init as item()*, $action as fn(*)) as f:generator
         {
           let $resultGen := ?emptyGenerator() 
                                 => map:put("endReached", false())
@@ -364,12 +364,12 @@ declare record f:generator
                                               )            
         },
       
-        scan-right := %method fn($init as item()*, $action as fn(*))
+        scan-right := %method fn($init as item()*, $action as fn(*)) as f:generator
         {
           ?reverse()?scan-left($init, $action)?reverse()                         
         },
         
-        makeGenerator := %method fn($provider as function(*))
+        makeGenerator := %method fn($provider as function(*)) as f:generator
         {
          let $gen := if(not(?initialized)) then ?moveNext()
                     else .,
@@ -394,7 +394,7 @@ declare record f:generator
            return $nextGen                                                  
         },
         
-        makeGeneratorFromArray := %method fn($input as array(*))
+        makeGeneratorFromArray := %method fn($input as array(*)) as f:generator
         {
           let $size := array:size($input),
               $arrayProvider := fn($ind as xs:integer)
@@ -405,7 +405,7 @@ declare record f:generator
            return ?makeGenerator($arrayProvider)
         },
         
-        makeGeneratorFromSequence := %method fn($input as item()*)
+        makeGeneratorFromSequence := %method fn($input as item()*) as f:generator
         {
           let $size := count($input),
               $seqProvider := fn($ind as xs:integer)
@@ -416,7 +416,7 @@ declare record f:generator
            return ?makeGenerator($seqProvider)
         },
         
-        makeGeneratorFromMap := %method fn($inputMap as map(*))
+        makeGeneratorFromMap := %method fn($inputMap as map(*)) as f:generator
         {
           let $keys := map:keys($inputMap),
               $size := map:size($inputMap),
@@ -434,9 +434,9 @@ declare record f:generator
               ?makeGenerator($mapProvider)
         },
         
-        toSequence := %method fn() {?toArray() => array:items()},     
+        toSequence := %method fn() as item()* {?toArray() => array:items()},     
         
-        toMap := %method fn() 
+        toMap := %method fn() as map(*)
         {
           let $genPairs := ?for-each(fn($x)
                            {
@@ -455,7 +455,7 @@ declare record f:generator
 
         },
         
-        emptyGenerator := %method fn() 
+        emptyGenerator := %method fn() as f:generator
         {
           . => map:put("initialized", true()) => map:put("endReached", true())
             => map:put("getCurrent", %method fn() {error((),"getCurrent() called on an emptyGenerator")})
