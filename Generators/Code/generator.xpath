@@ -4,7 +4,7 @@ declare record f:generator
      endReached as xs:boolean,
      getCurrent as %method fn() as item()*,
      moveNext as %method fn(*) (: as f:generator, :),
-     toArray := %method fn() as array(*)
+     to-array := %method fn() as array(*)
      {
        while-do( [., []],
                 function( $inArr) 
@@ -13,7 +13,7 @@ declare record f:generator
                 { array{$inArr(1)?moveNext(), 
                         array:append($inArr(2), $inArr(1)?getCurrent())
                        } 
-                 }         
+                }         
        ) (2)
      },
      
@@ -22,7 +22,7 @@ declare record f:generator
       let $gen := if(not(?initialized)) then ?moveNext()
                     else .
        return
-         if($gen?endReached or $n le 0) then $gen?emptyGenerator()
+         if($gen?endReached or $n le 0) then $gen?empty-generator()
           else
             let $current := $gen?getCurrent(),
                 $newResultGen := map:put(., "getCurrent", %method fn(){$current}),
@@ -36,57 +36,57 @@ declare record f:generator
                        $newResultGen2
       },
       
-      takeWhile := %method fn($pred as function(item()*) as xs:boolean) as f:generator
+      take-while := %method fn($pred as function(item()*) as xs:boolean) as f:generator
       {
         let $gen := if(not(?initialized)) then ?moveNext()
                       else .
          return
-           if($gen?endReached) then $gen?emptyGenerator()
+           if($gen?endReached) then $gen?empty-generator()
             else      
               let $current := $gen?getCurrent()
                 return
-                  if(not($pred($current))) then $gen?emptyGenerator()
+                  if(not($pred($current))) then $gen?empty-generator()
                   else
                     let $newResultGen := map:put(., "getCurrent", %method fn(){$current}),
                         $nextGen := ?moveNext()
                      return
                         if($nextGen?endReached) then $newResultGen
                         else
-                          let $newResultGen2 :=  map:put($newResultGen, "moveNext", %method fn() {$nextGen?takeWhile($pred)}) 
+                          let $newResultGen2 :=  map:put($newResultGen, "moveNext", %method fn() {$nextGen?take-while($pred)}) 
                            return $newResultGen2  
       },
      
-     skipStrict := %method fn($n as xs:nonNegativeInteger, $issueErrorOnEmpty as xs:boolean) as f:generator
+     skip-strict := %method fn($n as xs:nonNegativeInteger, $issueErrorOnEmpty as xs:boolean) as f:generator
      {
             if($n eq 0) then .
               else if(?endReached) 
                      then if($issueErrorOnEmpty)
                            then error((), "Input Generator too-short") 
-                           else ?emptyGenerator()
+                           else ?empty-generator()
               else 
                 let $gen := if(not(?initialized)) then ?moveNext()
                              else .
                   return
-                    if(not($gen?endReached)) then $gen?moveNext()?skipStrict($n -1, $issueErrorOnEmpty)
-                      else $gen?emptyGenerator()                 
+                    if(not($gen?endReached)) then $gen?moveNext()?skip-strict($n -1, $issueErrorOnEmpty)
+                      else $gen?empty-generator()                 
 
      },
      skip := %method fn($n as xs:nonNegativeInteger) as f:generator
      {
-       ?skipStrict($n, false())
+       ?skip-strict($n, false())
      },
      
-     skipWhile := %method fn($pred as function(item()*) as xs:boolean) as f:generator
+     skip-while := %method fn($pred as function(item()*) as xs:boolean) as f:generator
      {
         let $gen := if(not(?initialized)) then ?moveNext()
                       else .
          return
-           if($gen?endReached) then $gen?emptyGenerator()
+           if($gen?endReached) then $gen?empty-generator()
             else
               let $current := $gen?getCurrent()
                return
                  if(not($pred($current))) then $gen
-                  else $gen?moveNext()?skipWhile($pred)                    
+                  else $gen?moveNext()?skip-while($pred)                    
      },
      
      some := %method fn() as xs:boolean
@@ -94,12 +94,12 @@ declare record f:generator
        ?initialized and not(?endReached)
      },
      
-     someWhere := %method fn($pred) as xs:boolean
+     some-where := %method fn($pred) as xs:boolean
      {
        ?filter($pred)?some()
      },
      
-     firstWhere := %method fn($pred) as item()*
+     first-where := %method fn($pred) as item()*
      {
        ?filter($pred)?head()
      },     
@@ -114,9 +114,9 @@ declare record f:generator
         let $gen := if(not(?initialized)) then ?moveNext()
                       else .
          return
-           if($gen?endReached) then $gen?emptyGenerator()
+           if($gen?endReached) then $gen?empty-generator()
            else
-             let $thisChunk := $gen?take($size)?toArray(),
+             let $thisChunk := $gen?take($size)?to-array(),
                  $cutGen := $gen?skip($size),
                  $resultGen := $gen => map:put("getCurrent", %method fn(){$thisChunk})
                                     => map:put("moveNext", %method fn(){$cutGen?chunk($size)})
@@ -146,7 +146,7 @@ declare record f:generator
       let $gen := if(not(?initialized)) then ?moveNext()
                     else .        
        return
-         if(?endReached) then ?emptyGenerator()
+         if(?endReached) then ?empty-generator()
           else
            let $current := $fun(?getCurrent()),
                 $newResultGen := map:put(., "getCurrent", %method fn(){$current}),
@@ -166,7 +166,7 @@ declare record f:generator
             $gen2 := if(not($gen2?initialized)) then $gen2?moveNext()
                     else $gen2
          return
-            if(?endReached or $gen2?endReached) then ?emptyGenerator() 
+            if(?endReached or $gen2?endReached) then ?empty-generator() 
              else  
                let $current := $fun(?getCurrent(), $gen2?getCurrent()),
                    $newResultGen := map:put(., "getCurrent", %method fn(){$current}),
@@ -211,7 +211,7 @@ declare record f:generator
         let $gen := if(not(?initialized)) then ?moveNext()
                     else .,
             $genSingle := $gen => map:put("getCurrent", %method fn(){$value})
-                               => map:put("moveNext", %method fn(){?emptyGenerator()})
+                               => map:put("moveNext", %method fn(){?empty-generator()})
                                => map:put("endReached", false())
          return
            $gen?concat($genSingle)                    
@@ -222,27 +222,47 @@ declare record f:generator
                 let $gen := if(not(?initialized)) then ?moveNext()
                     else .,
                     $genSingle := $gen => map:put("getCurrent", %method fn(){$value})
-                                       => map:put("moveNext", %method fn(){?emptyGenerator()})
+                                       => map:put("moveNext", %method fn(){?empty-generator()})
          return
            $genSingle?concat($gen)  
       },
       
-      insertAt := %method fn($pos as xs:positiveInteger, $value as item()*) as f:generator
+      insert-at := %method fn($pos as xs:positiveInteger, $value as item()*) as f:generator
       {
-        let $genTail := ?skipStrict($pos - 1, true())
+        let $genTail := ?skip-strict($pos - 1, true())
          return
             if($pos gt 1)
               then ?take($pos - 1)?append($value)?concat($genTail)
               else $genTail?prepend($value)               
       },
       
-      removeAt := %method fn($pos as xs:nonNegativeInteger) as f:generator
+      remove-at := %method fn($pos as xs:nonNegativeInteger) as f:generator
       {
-        let $genTail := ?skipStrict($pos, true())
+        let $genTail := ?skip-strict($pos, true())
           return
             if($pos gt 1)
               then ?take($pos - 1)?concat($genTail)
               else $genTail
+      },
+      
+      remove-where := %method fn($predicate as function(item()*) as xs:boolean) as f:generator
+      {
+        let $gen := if(not(?initialized)) then ?moveNext()
+                      else .
+          return
+            $gen?filter(fn($x){not($predicate($x))})  
+      },
+      
+      distinct %method fn() as f:generator
+      {
+        let $gen := if(not(?initialized)) then ?moveNext()
+                      else .
+         return
+           if($gen?endReached) then $gen
+           else
+             let $priorValue := ?getCurrent()
+               return
+                 $gen => map:put("moveNext", %method fn(){$gen?tail()?remove-where(fn($x){deep-equal($priorValue, $x)})?distinct()})  
       },
     
       replace := %method fn($funIsMatching as function(item()*) as xs:boolean, $replacement as item()*) as f:generator
@@ -272,7 +292,7 @@ declare record f:generator
       
       reverse := %method fn() as f:generator
       {
-        if(?endReached) then ?emptyGenerator()
+        if(?endReached) then ?empty-generator()
           else
            let $current := ?getCurrent()
              return
@@ -281,12 +301,12 @@ declare record f:generator
 
       filter := %method fn($pred as function(item()*) as xs:boolean) as f:generator
       {
-             if(?initialized and ?endReached) then ?emptyGenerator()
+             if(?initialized and ?endReached) then ?empty-generator()
               else
                 let $getNextGoodGen := function($gen as map(*), 
                                              $pred as function(item()*) as xs:boolean)
                    {
-                      if($gen?endReached) then $gen?emptyGenerator()
+                      if($gen?endReached) then $gen?empty-generator()
                       else
                         let $mapResult := 
                               while-do(
@@ -295,7 +315,7 @@ declare record f:generator
                                        function($x) { $x?moveNext() }
                                        )   
                         return 
-                          if($mapResult?endReached) then $gen?emptyGenerator()
+                          if($mapResult?endReached) then $gen?empty-generator()
                            else $mapResult                  
                    },
                    
@@ -303,14 +323,14 @@ declare record f:generator
                              else ?moveNext(),
                    $nextGoodGen := $getNextGoodGen($gen, $pred)
                 return
-                  if($nextGoodGen?endReached) then $gen?emptyGenerator()
+                  if($nextGoodGen?endReached) then $gen?empty-generator()
                   else
                     $nextGoodGen => map:put("moveNext", 
                                             %method fn() 
                                               {
                                                 let $nextGoodGen := $getNextGoodGen(?inputGen?moveNext(), $pred)
                                                   return
-                                                    if($nextGoodGen?endReached) then $nextGoodGen?emptyGenerator()
+                                                    if($nextGoodGen?endReached) then $nextGoodGen?empty-generator()
                                                     else
                                                       map:put(map:put($nextGoodGen, "moveNext", %method fn() {$nextGoodGen?moveNext()?filter($pred)}),
                                                                       "inputGen", $nextGoodGen
@@ -345,12 +365,12 @@ declare record f:generator
         
         scan-left := %method fn($init as item()*, $action as fn(*)) as f:generator
         {
-          let $resultGen := ?emptyGenerator() 
+          let $resultGen := ?empty-generator() 
                                 => map:put("endReached", false())
                                 => map:put("getCurrent", %method fn(){$init})
            return
              if(?endReached) 
-               then $resultGen => map:put("moveNext", %method fn(){?emptyGenerator()})
+               then $resultGen => map:put("moveNext", %method fn(){?empty-generator()})
                else
                  let $resultGen := $resultGen => map:put("getCurrent", %method fn(){$init}),
                      $partialFoldResult := $action($init, ?getCurrent())
@@ -369,13 +389,13 @@ declare record f:generator
           ?reverse()?scan-left($init, $action)?reverse()                         
         },
         
-        makeGenerator := %method fn($provider as function(*)) as f:generator
+        make-generator := %method fn($provider as function(*)) as f:generator
         {
          let $gen := if(not(?initialized)) then ?moveNext()
                     else .,
               $nextDataItemGetter := $provider(0),
-              $nextGen := if(not($nextDataItemGetter instance of function(*))) then $gen?emptyGenerator()  
-                           else $gen?emptyGenerator()
+              $nextGen := if(not($nextDataItemGetter instance of function(*))) then $gen?empty-generator()  
+                           else $gen?empty-generator()
                             => map:put("numDataItems", 1)
                             => map:put("current", $nextDataItemGetter())
                             => map:put("endReached", false())
@@ -385,7 +405,7 @@ declare record f:generator
                                         {
                                           let $nextDataItemGetter := $provider(?numDataItems)
                                             return
-                                              if(not($nextDataItemGetter instance of function(*))) then ?emptyGenerator()
+                                              if(not($nextDataItemGetter instance of function(*))) then ?empty-generator()
                                               else
                                                 . => map:put("current", $nextDataItemGetter())
                                                   => map:put("numDataItems", ?numDataItems + 1)
@@ -394,7 +414,7 @@ declare record f:generator
            return $nextGen                                                  
         },
         
-        makeGeneratorFromArray := %method fn($input as array(*)) as f:generator
+        make-generator-from-array := %method fn($input as array(*)) as f:generator
         {
           let $size := array:size($input),
               $arrayProvider := fn($ind as xs:integer)
@@ -402,10 +422,10 @@ declare record f:generator
                                   if($ind +1 gt $size) then -1
                                    else fn(){$input($ind + 1)}
                                 }
-           return ?makeGenerator($arrayProvider)
+           return ?make-generator($arrayProvider)
         },
         
-        makeGeneratorFromSequence := %method fn($input as item()*) as f:generator
+        make-generator-from-sequence := %method fn($input as item()*) as f:generator
         {
           let $size := count($input),
               $seqProvider := fn($ind as xs:integer)
@@ -413,10 +433,10 @@ declare record f:generator
                                   if($ind +1 gt $size) then -1
                                    else fn(){$input[$ind + 1]}
                                 }
-           return ?makeGenerator($seqProvider)
+           return ?make-generator($seqProvider)
         },
         
-        makeGeneratorFromMap := %method fn($inputMap as map(*)) as f:generator
+        make-generator-from-map := %method fn($inputMap as map(*)) as f:generator
         {
           let $keys := map:keys($inputMap),
               $size := map:size($inputMap),
@@ -431,12 +451,12 @@ declare record f:generator
                        }
               }
             return
-              ?makeGenerator($mapProvider)
+              ?make-generator($mapProvider)
         },
         
-        toSequence := %method fn() as item()* {?toArray() => array:items()},     
+        to-sequence := %method fn() as item()* {?to-array() => array:items()},     
         
-        toMap := %method fn() as map(*)
+        to-map := %method fn() as map(*)
         {
           let $genPairs := ?for-each(fn($x)
                            {
@@ -451,15 +471,15 @@ declare record f:generator
                            }
                          ) 
            return
-             map:of-pairs($genPairs?toSequence())
+             map:of-pairs($genPairs?to-sequence())
 
         },
         
-        emptyGenerator := %method fn() as f:generator
+        empty-generator := %method fn() as f:generator
         {
           . => map:put("initialized", true()) => map:put("endReached", true())
-            => map:put("getCurrent", %method fn() {error((),"getCurrent() called on an emptyGenerator")})
-            => map:put("moveNext", %method fn() {error((),"moveNext() called on an emptyGenerator")})
+            => map:put("getCurrent", %method fn() {error((),"getCurrent() called on an empty-generator")})
+            => map:put("moveNext", %method fn() {error((),"moveNext() called on an empty-generator")})
         },      
      *
    );
@@ -482,8 +502,8 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     $factorial := fn($n) {fold-left(1 to $n, 1, $product)}
   return    
   (
-    "$gen2ToInf?take(3)?toArray()",
-    $gen2ToInf?take(3)?toArray(),
+    "$gen2ToInf?take(3)?to-array()",
+    $gen2ToInf?take(3)?to-array(),
     "================",    
     "$gen2ToInf?take(3)?skip(2)?getCurrent()",
     $gen2ToInf?take(3)?skip(2)?getCurrent(),
@@ -511,92 +531,92 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     $gen2ToInf?subrange(4, 6)?head(),  
     "$gen2ToInf?subrange(4, 6)?tail()?head()",
     $gen2ToInf?subrange(4, 6)?tail()?head(),
-    "$gen2ToInf?subrange(4, 6)?toArray()",
-    $gen2ToInf?subrange(4, 6)?toArray(),
+    "$gen2ToInf?subrange(4, 6)?to-array()",
+    $gen2ToInf?subrange(4, 6)?to-array(),
     "$gen2ToInf?head()",
     $gen2ToInf?head(),
     "==>  $gen2ToInf?tail()?head()",
     $gen2ToInf?tail()?head(),
     "================", 
-    "$gen2ToInf?subrange(4, 6)?tail()?toArray()",
-    $gen2ToInf?subrange(4, 6)?tail()?toArray(),
+    "$gen2ToInf?subrange(4, 6)?tail()?to-array()",
+    $gen2ToInf?subrange(4, 6)?tail()?to-array(),
     "================",
     "$gen2ToInf?at(5)",
     $gen2ToInf?at(5), 
     "================",
-    "$gen2ToInf?subrange(1, 5)?toArray()",
-    $gen2ToInf?subrange(1, 5)?toArray(),
-    "$gen2ToInf?subrange(1, 5)?for-each($double)?toArray()",
-    $gen2ToInf?subrange(1, 5)?for-each($double)?toArray(),
-    "$gen2ToInf?take(5)?for-each($double)?toArray()",
-    $gen2ToInf?take(5)?for-each($double)?toArray(),
-    "==>  $gen2ToInf?for-each($double)?take(5)?toArray()",
-    $gen2ToInf?for-each($double)?take(5)?toArray(),
+    "$gen2ToInf?subrange(1, 5)?to-array()",
+    $gen2ToInf?subrange(1, 5)?to-array(),
+    "$gen2ToInf?subrange(1, 5)?for-each($double)?to-array()",
+    $gen2ToInf?subrange(1, 5)?for-each($double)?to-array(),
+    "$gen2ToInf?take(5)?for-each($double)?to-array()",
+    $gen2ToInf?take(5)?for-each($double)?to-array(),
+    "==>  $gen2ToInf?for-each($double)?take(5)?to-array()",
+    $gen2ToInf?for-each($double)?take(5)?to-array(),
     "================",
-    "$gen2ToInf?subrange(1, 5)?toArray()",
-    $gen2ToInf?subrange(1, 5)?toArray(),
-    "$gen2ToInf?subrange(6, 10)?toArray()",
-    $gen2ToInf?subrange(6, 10)?toArray(),
-    "$gen2ToInf?subrange(1, 5)?for-each-pair($gen2ToInf?subrange(6, 10), $sum2)?toArray()",
-    $gen2ToInf?subrange(1, 5)?for-each-pair($gen2ToInf?subrange(6, 10), $sum2)?toArray(), 
-    "==>  $gen2ToInf?for-each-pair($gen2ToInf, $sum2)?take(5)?toArray()",
-    $gen2ToInf?for-each-pair($gen2ToInf, $sum2)?take(5)?toArray(),
+    "$gen2ToInf?subrange(1, 5)?to-array()",
+    $gen2ToInf?subrange(1, 5)?to-array(),
+    "$gen2ToInf?subrange(6, 10)?to-array()",
+    $gen2ToInf?subrange(6, 10)?to-array(),
+    "$gen2ToInf?subrange(1, 5)?for-each-pair($gen2ToInf?subrange(6, 10), $sum2)?to-array()",
+    $gen2ToInf?subrange(1, 5)?for-each-pair($gen2ToInf?subrange(6, 10), $sum2)?to-array(), 
+    "==>  $gen2ToInf?for-each-pair($gen2ToInf, $sum2)?take(5)?to-array()",
+    $gen2ToInf?for-each-pair($gen2ToInf, $sum2)?take(5)?to-array(),
     "================",
     "==>  $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?getCurrent()",
     $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?getCurrent(),
     "$gen2ToInf?filter(fn($n){$n mod 2 eq 1})?moveNext()?getCurrent()",
     $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?moveNext()?getCurrent(),
     "================", 
-    "$gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?toArray()",
-    $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?toArray(),  
+    "$gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?to-array()",
+    $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?to-array(),  
     "================", 
-    "$gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?toSequence()",
-    $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?toSequence(),
+    "$gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?to-sequence()",
+    $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?to-sequence(),
     "================", 
-    "$gen2ToInf?takeWhile(fn($n){$n lt 11})?toArray()",
-    $gen2ToInf?takeWhile(fn($n){$n lt 11})?toArray(), 
-    "$gen2ToInf?takeWhile(fn($n){$n lt 2})?toArray()",
-    $gen2ToInf?takeWhile(fn($n){$n lt 2})?toArray(), 
+    "$gen2ToInf?take-while(fn($n){$n lt 11})?to-array()",
+    $gen2ToInf?take-while(fn($n){$n lt 11})?to-array(), 
+    "$gen2ToInf?take-while(fn($n){$n lt 2})?to-array()",
+    $gen2ToInf?take-while(fn($n){$n lt 2})?to-array(), 
     "================", 
-    "$gen2ToInf?skipWhile(fn($n){$n lt 11})?take(5)?toArray()",
-    $gen2ToInf?skipWhile(fn($n){$n lt 11})?take(5)?toArray(),
-    "==> $gen2ToInf?skipWhile(fn($n){$n lt 2})",
-    $gen2ToInf?skipWhile(fn($n){$n lt 2}),
+    "$gen2ToInf?skip-while(fn($n){$n lt 11})?take(5)?to-array()",
+    $gen2ToInf?skip-while(fn($n){$n lt 11})?take(5)?to-array(),
+    "==> $gen2ToInf?skip-while(fn($n){$n lt 2})",
+    $gen2ToInf?skip-while(fn($n){$n lt 2}),
     "
-     ==> $gen2ToInf?skipWhile(fn($n){$n lt 2})?skip(1)",
-    $gen2ToInf?skipWhile(fn($n){$n lt 2})?skip(1),
-(:    $gen2ToInf?skipWhile(fn($x) {$x ge 2}) :) (: ?skip(1) :) 
+     ==> $gen2ToInf?skip-while(fn($n){$n lt 2})?skip(1)",
+    $gen2ToInf?skip-while(fn($n){$n lt 2})?skip(1),
+(:    $gen2ToInf?skip-while(fn($x) {$x ge 2}) :) (: ?skip(1) :) 
     "$gen2ToInf?some()",
      $gen2ToInf?some(),
-     "let $empty := $gen2ToInf?emptyGenerator()
+     "let $empty := $gen2ToInf?empty-generator()
       return $empty?some()",
-     let $empty := $gen2ToInf?emptyGenerator()
+     let $empty := $gen2ToInf?empty-generator()
       return $empty?some(),
     "================",
     "$gen2ToInf?take(5)?filter(fn($n){$n ge 7})?some()",
      $gen2ToInf?take(5)?filter(fn($n){$n ge 7})?some(),  
-     "$gen2ToInf?take(5)?someWhere(fn($n){$n ge 7})",
-     $gen2ToInf?take(5)?someWhere(fn($n){$n ge 7}), 
-     "$gen2ToInf?take(5)?someWhere(fn($n){$n ge 6})",
-     $gen2ToInf?take(5)?someWhere(fn($n){$n ge 6}),
-     "$gen2ToInf?someWhere(fn($n){$n ge 100})",
-     $gen2ToInf?someWhere(fn($n){$n ge 100}),
+     "$gen2ToInf?take(5)?some-where(fn($n){$n ge 7})",
+     $gen2ToInf?take(5)?some-where(fn($n){$n ge 7}), 
+     "$gen2ToInf?take(5)?some-where(fn($n){$n ge 6})",
+     $gen2ToInf?take(5)?some-where(fn($n){$n ge 6}),
+     "$gen2ToInf?some-where(fn($n){$n ge 100})",
+     $gen2ToInf?some-where(fn($n){$n ge 100}),
      "================",
-     "$gen2ToInf?take(10)?take(11)?toArray()",
-     $gen2ToInf?take(10)?take(11)?toArray(),
-     "$gen2ToInf?take(10)?skip(10)?toArray()",
-     $gen2ToInf?take(10)?skip(10)?toArray(),
-     "$gen2ToInf?take(10)?skip(9)?toArray()",     
-     $gen2ToInf?take(10)?skip(9)?toArray(),
-     "$gen2ToInf?take(10)?subrange(3, 12)?toArray()",
-     $gen2ToInf?take(10)?subrange(3, 12)?toArray(),
-     "$gen2ToInf?take(10)?subrange(5, 3)?toArray()",
-     $gen2ToInf?take(10)?subrange(5, 3)?toArray(),
+     "$gen2ToInf?take(10)?take(11)?to-array()",
+     $gen2ToInf?take(10)?take(11)?to-array(),
+     "$gen2ToInf?take(10)?skip(10)?to-array()",
+     $gen2ToInf?take(10)?skip(10)?to-array(),
+     "$gen2ToInf?take(10)?skip(9)?to-array()",     
+     $gen2ToInf?take(10)?skip(9)?to-array(),
+     "$gen2ToInf?take(10)?subrange(3, 12)?to-array()",
+     $gen2ToInf?take(10)?subrange(3, 12)?to-array(),
+     "$gen2ToInf?take(10)?subrange(5, 3)?to-array()",
+     $gen2ToInf?take(10)?subrange(5, 3)?to-array(),
      "================",
      "$gen2ToInf?take(100)?chunk(20)?getCurrent()",
       $gen2ToInf?take(100)?chunk(20)?getCurrent(),
-      "==>  $gen2ToInf?chunk(20)?take(5)?toArray()",
-      $gen2ToInf?chunk(20)?take(5)?toArray(),
+      "==>  $gen2ToInf?chunk(20)?take(5)?to-array()",
+      $gen2ToInf?chunk(20)?take(5)?to-array(),
      "================",
      "$gen2ToInf?take(100)?chunk(20)?moveNext()?getCurrent()",
       $gen2ToInf?take(100)?chunk(20)?moveNext()?getCurrent(),
@@ -605,94 +625,106 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
      "$gen2ToInf?take(100)?chunk(20)?skip(1)?getCurrent()",      
       $gen2ToInf?take(100)?chunk(20)?skip(1)?getCurrent(),
      "================",      
-     "$gen2ToInf?take(100)?chunk(20)?for-each(fn($genX){$genX})?toArray()",      
-      $gen2ToInf?take(100)?chunk(20)?for-each(fn($genX){$genX})?toArray(),
+     "$gen2ToInf?take(100)?chunk(20)?for-each(fn($genX){$genX})?to-array()",      
+      $gen2ToInf?take(100)?chunk(20)?for-each(fn($genX){$genX})?to-array(),
      "================",  
-     "$gen2ToInf?take(10)?chunk(4)?toArray()",
-      $gen2ToInf?take(10)?chunk(4)?toArray(),
-      "$gen2ToInf?take(10)?chunk(4)?for-each(fn($arr){array:size($arr)})?toArray()",
-      $gen2ToInf?take(10)?chunk(4)?for-each(fn($arr){array:size($arr)})?toArray(),
+     "$gen2ToInf?take(10)?chunk(4)?to-array()",
+      $gen2ToInf?take(10)?chunk(4)?to-array(),
+      "$gen2ToInf?take(10)?chunk(4)?for-each(fn($arr){array:size($arr)})?to-array()",
+      $gen2ToInf?take(10)?chunk(4)?for-each(fn($arr){array:size($arr)})?to-array(),
      "================", 
-     "$gen2ToInf?subrange(10, 15)?concat($gen2ToInf?subrange(1, 9))?toArray()",
-     $gen2ToInf?subrange(10, 15)?concat($gen2ToInf?subrange(1, 9))?toArray(),
+     "$gen2ToInf?subrange(10, 15)?concat($gen2ToInf?subrange(1, 9))?to-array()",
+     $gen2ToInf?subrange(10, 15)?concat($gen2ToInf?subrange(1, 9))?to-array(),
      "================", 
-     "$gen2ToInf?subrange(1, 5)?append(101)?toArray()",
-     $gen2ToInf?subrange(1, 5)?append(101)?toArray(),
-     "$gen2ToInf?subrange(1, 5)?prepend(101)?toArray()",
-     $gen2ToInf?subrange(1, 5)?prepend(101)?toArray(),
+     "$gen2ToInf?subrange(1, 5)?append(101)?to-array()",
+     $gen2ToInf?subrange(1, 5)?append(101)?to-array(),
+     "$gen2ToInf?subrange(1, 5)?prepend(101)?to-array()",
+     $gen2ToInf?subrange(1, 5)?prepend(101)?to-array(),
      "==>  $gen2ToInf?append(101)",
      $gen2ToInf?append(101),
-     "$gen2ToInf?prepend(101)?take(5)?toArray()",
-     $gen2ToInf?prepend(101)?take(5)?toArray(),
+     "$gen2ToInf?prepend(101)?take(5)?to-array()",
+     $gen2ToInf?prepend(101)?take(5)?to-array(),
      "================", 
-     "$gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(6, 10))?toArray()",
-     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(6, 10))?toArray(),
-     "$gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?toArray()",
-     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?toArray(),
-     "==>  $gen2ToInf?zip($gen2ToInf?skip(5))?take(10)?toArray()",
-     $gen2ToInf?zip($gen2ToInf?skip(5))?take(10)?toArray(),
-     "$gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?zip($gen2ToInf?subrange(30, 40))?toArray()",
-     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?zip($gen2ToInf?subrange(30, 40))?toArray(),
+     "$gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(6, 10))?to-array()",
+     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(6, 10))?to-array(),
+     "$gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?to-array()",
+     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?to-array(),
+     "==>  $gen2ToInf?zip($gen2ToInf?skip(5))?take(10)?to-array()",
+     $gen2ToInf?zip($gen2ToInf?skip(5))?take(10)?to-array(),
+     "$gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?zip($gen2ToInf?subrange(30, 40))?to-array()",
+     $gen2ToInf?subrange(1, 5)?zip($gen2ToInf?subrange(10, 20))?zip($gen2ToInf?subrange(30, 40))?to-array(),
      "================", 
-     "$gen2ToInf?makeGenerator(fn($numGenerated as xs:integer)
+     "$gen2ToInf?make-generator(fn($numGenerated as xs:integer)
                                  {if($numGenerated le 9) then fn() {$numGenerated + 1} else -1} 
-                             )?toArray()",
-     $gen2ToInf?makeGenerator(fn($numGenerated as xs:integer)
+                             )?to-array()",
+     $gen2ToInf?make-generator(fn($numGenerated as xs:integer)
                                  {if($numGenerated le 9) then fn() {$numGenerated + 1} else -1} 
-                             )?toArray(),
+                             )?to-array(),
      "================", 
-     "$gen2ToInf?makeGeneratorFromArray([1, 4, 9, 16, 25])?toArray()",
-      $gen2ToInf?makeGeneratorFromArray([1, 4, 9, 16, 25])?toArray(),
-      "$gen2ToInf?makeGeneratorFromSequence((1, 8, 27, 64, 125))?toArray()",
-      $gen2ToInf?makeGeneratorFromSequence((1, 8, 27, 64, 125))?toArray(), 
+     "$gen2ToInf?make-generator-from-array([1, 4, 9, 16, 25])?to-array()",
+      $gen2ToInf?make-generator-from-array([1, 4, 9, 16, 25])?to-array(),
+      "$gen2ToInf?make-generator-from-sequence((1, 8, 27, 64, 125))?to-array()",
+      $gen2ToInf?make-generator-from-sequence((1, 8, 27, 64, 125))?to-array(), 
      "================", 
-     "$gen2ToInf?take(10)?insertAt(3, ""XYZ"")?toArray()",
-      $gen2ToInf?take(10)?insertAt(3, "XYZ")?toArray(),
-      "$gen2ToInf?take(10)?insertAt(1, ""ABC"")?toArray()",
-      $gen2ToInf?take(10)?insertAt(1, "ABC")?toArray(),
-      "$gen2ToInf?take(10)?insertAt(11, ""PQR"")?toArray()",
-      $gen2ToInf?take(10)?insertAt(11, "PQR")?toArray(),
-      "==>  $gen2ToInf?insertAt(3, ""XYZ"")?take(10)?toArray()", 
-      $gen2ToInf?insertAt(3, "XYZ")?take(10)?toArray(),
-     (: , $gen2ToInf?take(10)?insertAt(12, "GHI")?toArray() :)  (:  Must raise error "Input Generator too-short." :) 
+     "$gen2ToInf?take(10)?insert-at(3, ""XYZ"")?to-array()",
+      $gen2ToInf?take(10)?insert-at(3, "XYZ")?to-array(),
+      "$gen2ToInf?take(10)?insert-at(1, ""ABC"")?to-array()",
+      $gen2ToInf?take(10)?insert-at(1, "ABC")?to-array(),
+      "$gen2ToInf?take(10)?insert-at(11, ""PQR"")?to-array()",
+      $gen2ToInf?take(10)?insert-at(11, "PQR")?to-array(),
+      "==>  $gen2ToInf?insert-at(3, ""XYZ"")?take(10)?to-array()", 
+      $gen2ToInf?insert-at(3, "XYZ")?take(10)?to-array(),
+     (: , $gen2ToInf?take(10)?insert-at(12, "GHI")?to-array() :)  (:  Must raise error "Input Generator too-short." :) 
      "================", 
-     "$gen2ToInf?take(10)?removeAt(3)?toArray()",
-      $gen2ToInf?take(10)?removeAt(3)?toArray(),
-      "$gen2ToInf?take(10)?removeAt(1)?toArray()",
-      $gen2ToInf?take(10)?removeAt(1)?toArray(),
-      "$gen2ToInf?take(10)?removeAt(10)?toArray()",
-      $gen2ToInf?take(10)?removeAt(10)?toArray(),
-      "==>  $gen2ToInf?removeAt(3)?take(10)?toArray()",
-      $gen2ToInf?removeAt(3)?take(10)?toArray(),
-      (: , $gen2ToInf?take(10)?removeAt(11)?toArray() :)        (:  Must raise error "Input Generator too-short." :) 
+     "$gen2ToInf?take(10)?remove-at(3)?to-array()",
+      $gen2ToInf?take(10)?remove-at(3)?to-array(),
+      "$gen2ToInf?take(10)?remove-at(1)?to-array()",
+      $gen2ToInf?take(10)?remove-at(1)?to-array(),
+      "$gen2ToInf?take(10)?remove-at(10)?to-array()",
+      $gen2ToInf?take(10)?remove-at(10)?to-array(),
+      "==>  $gen2ToInf?remove-at(3)?take(10)?to-array()",
+      $gen2ToInf?remove-at(3)?take(10)?to-array(),
+      (: , $gen2ToInf?take(10)?remove-at(11)?to-array() :)        (:  Must raise error "Input Generator too-short." :) 
      "================",
-     "$gen2ToInf?take(10)?replace(fn($x){$x gt 4}, ""Replacement"")?toArray()",
-      $gen2ToInf?take(10)?replace(fn($x){$x gt 4}, "Replacement")?toArray(),
-      "$gen2ToInf?take(10)?replace(fn($x){$x lt 3}, ""Replacement"")?toArray()",
-      $gen2ToInf?take(10)?replace(fn($x){$x lt 3}, "Replacement")?toArray(),
-      "$gen2ToInf?take(10)?replace(fn($x){$x gt 10}, ""Replacement"")?toArray()",
-      $gen2ToInf?take(10)?replace(fn($x){$x gt 10}, "Replacement")?toArray(),
-      "$gen2ToInf?take(10)?replace(fn($x){$x gt 11}, ""Replacement"")?toArray()",
-      $gen2ToInf?take(10)?replace(fn($x){$x gt 11}, "Replacement")?toArray(),
-      "$gen2ToInf?take(10)?replace(fn($x){$x lt 2}, ""Replacement"")?toArray()",
-      $gen2ToInf?take(10)?replace(fn($x){$x lt 2}, "Replacement")?toArray(),
-      "==> $gen2ToInf?replace(fn($x){$x gt 4}, ""Replacement"")?take(10)?toArray()",
-      $gen2ToInf?replace(fn($x){$x gt 4}, "Replacement")?take(10)?toArray(),
-      "$gen2ToInf?replace(fn($x){$x lt 3}, ""Replacement"")?take(10)?toArray()",
-      $gen2ToInf?replace(fn($x){$x lt 3}, "Replacement")?take(10)?toArray(),
+     "==>  $gen2ToInf?remove-where(fn($x){$x mod 3 eq 0})?take(10)?to-array()",
+      $gen2ToInf?remove-where(fn($x){$x mod 3 eq 0})?take(10)?to-array(),    
+     "================",
+     "$gen2ToInf?make-generator-from-sequence((1,  3, 1, 2,  1, 2, 5, 2, 5))?distinct()?to-array()",
+      $gen2ToInf?make-generator-from-sequence((1,  3, 1, 2,  1, 2, 5, 2, 5))?distinct()?to-array(),
+      "$gen2ToInf?for-each(fn($n){$n idiv 10})?take(50)?distinct()?to-array()",
+      $gen2ToInf?for-each(fn($n){$n idiv 10})?take(50)?distinct()?to-array(),
+      "$gen2ToInf?for-each(fn($n){$n idiv 10})?take(100)?distinct()?to-array()",
+      $gen2ToInf?for-each(fn($n){$n idiv 10})?take(100)?distinct()?to-array(),
+      "==> $gen2ToInf?for-each(fn($n){$n idiv 10})?distinct()?take(100)?to-array()",
+      $gen2ToInf?for-each(fn($n){$n idiv 10})?distinct()?take(100)?to-array(),
+     "================",          
+     "$gen2ToInf?take(10)?replace(fn($x){$x gt 4}, ""Replacement"")?to-array()",
+      $gen2ToInf?take(10)?replace(fn($x){$x gt 4}, "Replacement")?to-array(),
+      "$gen2ToInf?take(10)?replace(fn($x){$x lt 3}, ""Replacement"")?to-array()",
+      $gen2ToInf?take(10)?replace(fn($x){$x lt 3}, "Replacement")?to-array(),
+      "$gen2ToInf?take(10)?replace(fn($x){$x gt 10}, ""Replacement"")?to-array()",
+      $gen2ToInf?take(10)?replace(fn($x){$x gt 10}, "Replacement")?to-array(),
+      "$gen2ToInf?take(10)?replace(fn($x){$x gt 11}, ""Replacement"")?to-array()",
+      $gen2ToInf?take(10)?replace(fn($x){$x gt 11}, "Replacement")?to-array(),
+      "$gen2ToInf?take(10)?replace(fn($x){$x lt 2}, ""Replacement"")?to-array()",
+      $gen2ToInf?take(10)?replace(fn($x){$x lt 2}, "Replacement")?to-array(),
+      "==> $gen2ToInf?replace(fn($x){$x gt 4}, ""Replacement"")?take(10)?to-array()",
+      $gen2ToInf?replace(fn($x){$x gt 4}, "Replacement")?take(10)?to-array(),
+      "$gen2ToInf?replace(fn($x){$x lt 3}, ""Replacement"")?take(10)?to-array()",
+      $gen2ToInf?replace(fn($x){$x lt 3}, "Replacement")?take(10)?to-array(),
     (:  
       Will result in endless loop:
       
-      , "==>  ==>  ==>  $gen2ToInf?replace(fn($x){$x lt 2}, ""Replacement"")?take(10)?toArray() <==  <==  <==",
-      $gen2ToInf?replace2(fn($x){$x lt 2}, "Replacement")?take(10)?toArray() 
+      , "==>  ==>  ==>  $gen2ToInf?replace(fn($x){$x lt 2}, ""Replacement"")?take(10)?to-array() <==  <==  <==",
+      $gen2ToInf?replace2(fn($x){$x lt 2}, "Replacement")?take(10)?to-array() 
     :)
     "================",
-    "$gen2ToInf?emptyGenerator()?reverse()?toArray()",
-    $gen2ToInf?emptyGenerator()?reverse()?toArray(),
-    "$gen2ToInf?emptyGenerator()?append(2)?reverse()?toArray()",
-    $gen2ToInf?emptyGenerator()?append(2)?reverse()?toArray(),
-    "$gen2ToInf?take(10)?reverse()?toArray()",
-    $gen2ToInf?take(10)?reverse()?toArray(),
+    "$gen2ToInf?empty-generator()?reverse()?to-array()",
+    $gen2ToInf?empty-generator()?reverse()?to-array(),
+    "$gen2ToInf?empty-generator()?append(2)?reverse()?to-array()",
+    $gen2ToInf?empty-generator()?append(2)?reverse()?to-array(),
+    "$gen2ToInf?take(10)?reverse()?to-array()",
+    $gen2ToInf?take(10)?reverse()?to-array(),
     "================",
     "$genN?take(10)?contains(3)",
     $genN?take(10)?contains(3),
@@ -718,27 +750,27 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "==> $gen0toInf?for-each(fn($n){(2 * $n + 1) div $factorial(2*xs:decimal($n)})
              ?take(8)?fold-left(0, fn($x, $y){$x + $y})",
     $gen0toInf?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?fold-left(0, fn($x, $y){$x + $y}),
-    "$gen0toInf?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?scan-left(0, fn($x, $y){$x + $y})?toArray()",
-    $gen0toInf?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?scan-left(0, fn($x, $y){$x + $y})?toArray(),
+    "$gen0toInf?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?scan-left(0, fn($x, $y){$x + $y})?to-array()",
+    $gen0toInf?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?scan-left(0, fn($x, $y){$x + $y})?to-array(),
     "let $genSeqE := $gen0toInf?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?scan-left(0, fn($x, $y){$x + $y}),
     $genSeqE-Next := $genSeqE?tail(),
     $genZipped := $genSeqE?zip($genSeqE-Next)
  return
-    $genZipped?firstWhere(fn($pair){abs($pair(1) - $pair(2)) lt 0.000001})(2)",
+    $genZipped?first-where(fn($pair){abs($pair(1) - $pair(2)) lt 0.000001})(2)",
     let $genSeqE := $gen0toInf?for-each(fn($n){(2*$n + 1) div $factorial(2*xs:decimal($n))})?take(8)?scan-left(0, fn($x, $y){$x + $y}),
         $genSeqE-Next := $genSeqE?tail(),
         $genZipped := $genSeqE?zip($genSeqE-Next)
       return
-        $genZipped?firstWhere(fn($pair){abs($pair(1) - $pair(2)) lt 0.000001})(2), 
+        $genZipped?first-where(fn($pair){abs($pair(1) - $pair(2)) lt 0.000001})(2), 
     "================",
     
-    "$gen2ToInf?emptyGenerator()?scan-left(0, fn($x, $y){$x + $y})?toArray()",
-    $gen2ToInf?emptyGenerator()?scan-left(0, fn($x, $y){$x + $y})?toArray(),
-    "$gen2ToInf?take(5)?scan-left(0, fn($x, $y){$x + $y})?toArray()",
-    $gen2ToInf?take(5)?scan-left(0, fn($x, $y){$x + $y})?toArray(),
+    "$gen2ToInf?empty-generator()?scan-left(0, fn($x, $y){$x + $y})?to-array()",
+    $gen2ToInf?empty-generator()?scan-left(0, fn($x, $y){$x + $y})?to-array(),
+    "$gen2ToInf?take(5)?scan-left(0, fn($x, $y){$x + $y})?to-array()",
+    $gen2ToInf?take(5)?scan-left(0, fn($x, $y){$x + $y})?to-array(),
     "================",
-    "$gen2ToInf?makeGeneratorFromSequence((1 to 10))?scan-right(0, fn($x, $y){$x + $y})?toArray()",
-    $gen2ToInf?makeGeneratorFromSequence((1 to 10))?scan-right(0, fn($x, $y){$x + $y})?toArray(),
+    "$gen2ToInf?make-generator-from-sequence((1 to 10))?scan-right(0, fn($x, $y){$x + $y})?to-array()",
+    $gen2ToInf?make-generator-from-sequence((1 to 10))?scan-right(0, fn($x, $y){$x + $y})?to-array(),
     "================",
     let $multShortCircuitProvider := fn($x, $y)
         {
@@ -763,19 +795,19 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
      "===============",
      "     let $myMap := {'John': 22, 'Ann': 28, 'Peter': 31}
       return 
-        $gen2ToInf?makeGeneratorFromMap($myMap)?toArray()",
+        $gen2ToInf?make-generator-from-map($myMap)?to-array()",
      let $myMap := {"John": 22, "Ann": 28, "Peter": 31}
       return 
-        $gen2ToInf?makeGeneratorFromMap($myMap)?toArray(),
+        $gen2ToInf?make-generator-from-map($myMap)?to-array(),
      "===============",        
      "let $myMap := {'John': 22, 'Ann': 28, 'Peter': 31},
-          $genMap := $gen2ToInf?makeGeneratorFromMap($myMap)
+          $genMap := $gen2ToInf?make-generator-from-map($myMap)
       return
-        $genMap?toMap()" ,
+        $genMap?to-map()" ,
      let $myMap := {"John": 22, "Ann": 28, "Peter": 31},
-         $genMap := $gen2ToInf?makeGeneratorFromMap($myMap)
+         $genMap := $gen2ToInf?make-generator-from-map($myMap)
       return
-        $genMap?toMap(),
-     "$gen2ToInf?take(10)?toMap()",
-     $gen2ToInf?take(10)?toMap()     
+        $genMap?to-map(),
+     "$gen2ToInf?take(10)?to-map()",
+     $gen2ToInf?take(10)?to-map()     
    )
