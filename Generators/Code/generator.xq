@@ -4,10 +4,10 @@ declare function gn:to-array($gen as f:generator) as array(*)
 {
    while-do( [$gen, []],
           function( $inArr) 
-          { $inArr(1)?initialized and not($inArr(1)?endReached) },                 
+          { $inArr(1)?initialized and not($inArr(1)?end-reached) },                 
           function($inArr) 
-          { array{$inArr(1)?moveNext(), 
-                  array:append($inArr(2), $inArr(1)?getCurrent())
+          { array{$inArr(1)?move-next(), 
+                  array:append($inArr(2), $inArr(1)?get-current())
                  } 
            }         
  ) (2)
@@ -15,55 +15,55 @@ declare function gn:to-array($gen as f:generator) as array(*)
 
 declare function gn:take($gen as f:generator, $n as xs:integer) as f:generator
 {
-  let $gen := if(not($gen?initialized)) then $gen?moveNext()
+  let $gen := if(not($gen?initialized)) then $gen?move-next()
                 else $gen
    return
-     if($gen?endReached or $n le 0) then gn:empty-generator($gen)
+     if($gen?end-reached or $n le 0) then gn:empty-generator($gen)
       else
-        let $current := $gen?getCurrent(),
-            $newResultGen := map:put($gen, "getCurrent", %method fn(){$current}),
-            $nextGen := $gen?moveNext()
+        let $current := $gen?get-current(),
+            $newResultGen := map:put($gen, "get-current", %method fn(){$current}),
+            $nextGen := $gen?move-next()
          return
-           if($nextGen?endReached) then $newResultGen
+           if($nextGen?end-reached) then $newResultGen
              else
                let
-                   $newResultGen2 :=  map:put($newResultGen, "moveNext", %method fn() {gn:take($nextGen, $n -1)}) 
+                   $newResultGen2 :=  map:put($newResultGen, "move-next", %method fn() {gn:take($nextGen, $n -1)}) 
                  return
                    $newResultGen2  
 };
 
 declare function gn:take-while($gen as f:generator, $pred as function(item()*) as xs:boolean) as f:generator
 {
-  let $gen := if(not($gen?initialized)) then $gen?moveNext()
+  let $gen := if(not($gen?initialized)) then $gen?move-next()
                 else $gen
    return
-     if($gen?endReached) then gn:empty-generator($gen)
+     if($gen?end-reached) then gn:empty-generator($gen)
       else      
-        let $current := $gen?getCurrent()
+        let $current := $gen?get-current()
           return
             if(not($pred($current))) then gn:empty-generator($gen)
             else
-              let $newResultGen := map:put($gen, "getCurrent", %method fn(){$current}),
-                  $nextGen := $gen?moveNext()
+              let $newResultGen := map:put($gen, "get-current", %method fn(){$current}),
+                  $nextGen := $gen?move-next()
                return
-                  if($nextGen?endReached) then $newResultGen
+                  if($nextGen?end-reached) then $newResultGen
                   else
-                    let $newResultGen2 :=  map:put($newResultGen, "moveNext", %method fn() {gn:take-while($nextGen, $pred)}) 
+                    let $newResultGen2 :=  map:put($newResultGen, "move-next", %method fn() {gn:take-while($nextGen, $pred)}) 
                      return $newResultGen2    
 };
 
 declare function gn:skip-strict($gen as f:generator, $n as xs:nonNegativeInteger, $issueErrorOnEmpty as xs:boolean) as f:generator
 {
   if($n eq 0) then $gen
-    else if($gen?endReached) 
+    else if($gen?end-reached) 
            then if($issueErrorOnEmpty)
                  then error((), "Input Generator too-short") 
                  else gn:empty-generator($gen)
     else 
-      let $gen := if(not($gen?initialized)) then $gen?moveNext()
+      let $gen := if(not($gen?initialized)) then $gen?move-next()
                    else $gen
         return
-          if(not($gen?endReached)) then gn:skip-strict($gen?moveNext(), $n -1, $issueErrorOnEmpty)
+          if(not($gen?end-reached)) then gn:skip-strict($gen?move-next(), $n -1, $issueErrorOnEmpty)
             else gn:empty-generator($gen)    
 };
 
@@ -74,15 +74,15 @@ declare function gn:skip($gen as f:generator, $n as xs:nonNegativeInteger) as f:
 
 declare function gn:skip-while($gen as f:generator, $pred as function(item()*) as xs:boolean) as f:generator
 {
-  let $gen := if(not($gen?initialized)) then $gen?moveNext()
+  let $gen := if(not($gen?initialized)) then $gen?move-next()
                 else $gen
    return
-     if($gen?endReached) then gn:empty-generator($gen)
+     if($gen?end-reached) then gn:empty-generator($gen)
       else
-        let $current := $gen?getCurrent()
+        let $current := $gen?get-current()
          return
            if(not($pred($current))) then $gen
-            else gn:skip-while($gen?moveNext(), $pred)  
+            else gn:skip-while($gen?move-next(), $pred)  
 };
 
 declare function gn:subrange($gen as f:generator, $m as xs:positiveInteger, $n as xs:positiveInteger) as f:generator
@@ -92,7 +92,7 @@ declare function gn:subrange($gen as f:generator, $m as xs:positiveInteger, $n a
 
 declare function gn:some($gen as f:generator) as xs:boolean
 {
- $gen?initialized and not($gen?endReached)  
+ $gen?initialized and not($gen?end-reached)  
 };
 
 declare function gn:some-where($gen as f:generator, $pred) as xs:boolean
@@ -107,72 +107,72 @@ declare function gn:first-where($gen as f:generator, $pred) as item()*
 
 declare function gn:chunk($gen as f:generator, $size as xs:positiveInteger) as f:generator
 {
-  let $gen := if(not($gen?initialized)) then $gen?moveNext()
+  let $gen := if(not($gen?initialized)) then $gen?move-next()
                 else $gen
    return
-     if($gen?endReached) then gn:empty-generator($gen)
+     if($gen?end-reached) then gn:empty-generator($gen)
      else
        let $thisChunk := gn:to-array(gn:take($gen, $size)),
            $cutGen := gn:skip($gen, $size),
-           $resultGen := $gen => map:put("getCurrent", %method fn(){$thisChunk})
-                              => map:put("moveNext", %method fn(){gn:chunk($cutGen, $size)})
+           $resultGen := $gen => map:put("get-current", %method fn(){$thisChunk})
+                              => map:put("move-next", %method fn(){gn:chunk($cutGen, $size)})
         return $resultGen  
 };
 
-declare function gn:head($gen as f:generator) as item()* {gn:take($gen, 1)?getCurrent()};
+declare function gn:head($gen as f:generator) as item()* {gn:take($gen, 1)?get-current()};
 
 declare function gn:tail($gen as f:generator) as f:generator {gn:skip($gen, 1)};
 
-declare function gn:at($gen as f:generator, $ind) as item()* {gn:subrange($gen, $ind, $ind)?getCurrent()};
+declare function gn:at($gen as f:generator, $ind) as item()* {gn:subrange($gen, $ind, $ind)?get-current()};
 
 declare function gn:contains($gen as f:generator, $value as item()*) as xs:boolean
      {
-       let $gen := if(not($gen?initialized)) then ?moveNext()
+       let $gen := if(not($gen?initialized)) then ?move-next()
                      else $gen
         return
-          if($gen?endReached) then false()
+          if($gen?end-reached) then false()
            else
-             let $current := $gen?getCurrent()
+             let $current := $gen?get-current()
                return
                   if(deep-equal($current, $value)) then true()
-                   else gn:contains($gen?moveNext(), $value) 
+                   else gn:contains($gen?move-next(), $value) 
      };
 
 declare function gn:for-each($gen as f:generator, $fun as function(*)) as f:generator
 {
-  let $gen := if(not($gen?initialized)) then $gen?moveNext()
+  let $gen := if(not($gen?initialized)) then $gen?move-next()
                 else $gen        
    return
-     if($gen?endReached) then gn:empty-generator($gen)
+     if($gen?end-reached) then gn:empty-generator($gen)
       else
-       let $current := $fun($gen?getCurrent()),
-            $newResultGen := map:put($gen, "getCurrent", %method fn(){$current}),
-            $nextGen := $gen?moveNext()
+       let $current := $fun($gen?get-current()),
+            $newResultGen := map:put($gen, "get-current", %method fn(){$current}),
+            $nextGen := $gen?move-next()
         return
-          if($nextGen?endReached) then $newResultGen
+          if($nextGen?end-reached) then $newResultGen
             else
-              let $newResultGen2 :=  map:put($newResultGen, "moveNext", %method fn() {gn:for-each($nextGen, $fun)}) 
+              let $newResultGen2 :=  map:put($newResultGen, "move-next", %method fn() {gn:for-each($nextGen, $fun)}) 
                  return
                    $newResultGen2         
 };
 
 declare function gn:for-each-pair($gen as f:generator, $gen2 as f:generator, $fun as function(*)) as f:generator
 {
-  let $gen := if(not($gen?initialized)) then $gen?moveNext()
+  let $gen := if(not($gen?initialized)) then $gen?move-next()
               else $gen,
-      $gen2 := if(not($gen2?initialized)) then $gen2?moveNext()
+      $gen2 := if(not($gen2?initialized)) then $gen2?move-next()
               else $gen2
    return
-      if($gen?endReached or $gen2?endReached) then gn:empty-generator($gen) 
+      if($gen?end-reached or $gen2?end-reached) then gn:empty-generator($gen) 
        else  
-         let $current := $fun($gen?getCurrent(), $gen2?getCurrent()),
-             $newResultGen := map:put($gen, "getCurrent", %method fn(){$current}),
-             $nextGen1 := $gen?moveNext(),
-             $nextGen2 := $gen2?moveNext()
+         let $current := $fun($gen?get-current(), $gen2?get-current()),
+             $newResultGen := map:put($gen, "get-current", %method fn(){$current}),
+             $nextGen1 := $gen?move-next(),
+             $nextGen2 := $gen2?move-next()
           return
-             if($nextGen1?endReached or $nextGen2?endReached) then $newResultGen
+             if($nextGen1?end-reached or $nextGen2?end-reached) then $newResultGen
                else
-                 let $newResultGen2 := map:put($newResultGen, "moveNext", %method fn(){gn:for-each-pair($nextGen1, $nextGen2, $fun)})
+                 let $newResultGen2 := map:put($newResultGen, "move-next", %method fn(){gn:for-each-pair($nextGen1, $nextGen2, $fun)})
                    return
                      $newResultGen2      
 };
@@ -184,17 +184,17 @@ declare function gn:zip($gen as f:generator, $gen2 as f:generator) as f:generato
 
 declare function gn:concat($gen as f:generator, $gen2 as f:generator) as f:generator
       {
-        let $gen := if(not($gen?initialized)) then $gen?moveNext()
+        let $gen := if(not($gen?initialized)) then $gen?move-next()
                     else $gen,
-            $gen2 := if(not($gen2?initialized)) then $gen2?moveNext()
+            $gen2 := if(not($gen2?initialized)) then $gen2?move-next()
                     else $gen2,
-            $resultGen := if($gen?endReached) then $gen2
-                            else if($gen2?endReached) then $gen
+            $resultGen := if($gen?end-reached) then $gen2
+                            else if($gen2?end-reached) then $gen
                             else
-                              $gen  => map:put( "moveNext", 
+                              $gen  => map:put( "move-next", 
                                                 %method fn()
                                                  {
-                                                 let $nextGen := $gen?moveNext()
+                                                 let $nextGen := $gen?move-next()
                                                    return 
                                                      gn:concat($nextGen, $gen2)
                                                  }
@@ -205,21 +205,21 @@ declare function gn:concat($gen as f:generator, $gen2 as f:generator) as f:gener
       
 declare function gn:append($gen as f:generator, $value as item()*) as f:generator
       {
-        let $gen := if(not($gen?initialized)) then $gen?moveNext()
+        let $gen := if(not($gen?initialized)) then $gen?move-next()
                     else $gen,
-            $genSingle := $gen => map:put("getCurrent", %method fn(){$value})
-                               => map:put("moveNext", %method fn(){gn:empty-generator($gen)})
-                               => map:put("endReached", false())
+            $genSingle := $gen => map:put("get-current", %method fn(){$value})
+                               => map:put("move-next", %method fn(){gn:empty-generator($gen)})
+                               => map:put("end-reached", false())
          return
            gn:concat($gen, $genSingle)                    
       };  
       
 declare function gn:prepend($gen as f:generator, $value as item()*) as f:generator
       {
-        let $gen := if(not($gen?initialized)) then $gen?moveNext()
+        let $gen := if(not($gen?initialized)) then $gen?move-next()
             else $gen,
-            $genSingle := $gen => map:put("getCurrent", %method fn(){$value})
-                               => map:put("moveNext", %method fn(){gn:empty-generator($gen)})
+            $genSingle := $gen => map:put("get-current", %method fn(){$value})
+                               => map:put("move-next", %method fn(){gn:empty-generator($gen)})
          return
            gn:concat($genSingle, $gen)  
       };    
@@ -244,7 +244,7 @@ declare function gn:remove-at($gen as f:generator, $pos as xs:nonNegativeInteger
       
 declare function gn:remove-where($gen as f:generator, $predicate as function(item()*) as xs:boolean) as f:generator
       {
-        let $gen := if(not($gen?initialized)) then $gen?moveNext()
+        let $gen := if(not($gen?initialized)) then $gen?move-next()
                       else $gen
           return
             gn:filter($gen, fn($x){not($predicate($x))})  
@@ -252,36 +252,36 @@ declare function gn:remove-where($gen as f:generator, $predicate as function(ite
 
 declare function gn:distinct($gen as f:generator) as f:generator
       {
-        let $gen := if(not($gen?initialized)) then $gen?moveNext()
+        let $gen := if(not($gen?initialized)) then $gen?move-next()
                       else $gen
          return
-           if($gen?endReached) then $gen
+           if($gen?end-reached) then $gen
            else
-             let $priorValue := $gen?getCurrent()
+             let $priorValue := $gen?get-current()
                return
-                 $gen => map:put("moveNext", %method fn(){gn:distinct(gn:remove-where(gn:tail($gen), fn($x){deep-equal($priorValue, $x)}))})  
+                 $gen => map:put("move-next", %method fn(){gn:distinct(gn:remove-where(gn:tail($gen), fn($x){deep-equal($priorValue, $x)}))})  
       };
      
 declare function gn:replace($gen as f:generator, $funIsMatching as function(item()*) as xs:boolean, $replacement as item()*) as f:generator
       {
-        if($gen?endReached) then $gen
+        if($gen?end-reached) then $gen
           else
-            let $current := $gen?getCurrent()
+            let $current := $gen?get-current()
               return
                 if($funIsMatching($current))
-                  then let $nextGen := $gen?moveNext()
+                  then let $nextGen := $gen?move-next()
                      return
-                       $gen => map:put("getCurrent", %method fn() {$replacement})
-                            => map:put("moveNext", %method fn() { $nextGen } 
+                       $gen => map:put("get-current", %method fn() {$replacement})
+                            => map:put("move-next", %method fn() { $nextGen } 
                                   )
                   else (: $current is not the match for replacement :)
-                    let $nextGen := $gen?moveNext()
-                      return $gen => map:put("moveNext", 
+                    let $nextGen := $gen?move-next()
+                      return $gen => map:put("move-next", 
                                            %method fn()
                                            {
                                              let $intendedReplace := function($z) {$z?replace($funIsMatching, $replacement)}
                                               return
-                                                if($nextGen?endReached) then $nextGen
+                                                if($nextGen?end-reached) then $nextGen
                                                 else $intendedReplace($nextGen)
                                            }
                                         )
@@ -289,47 +289,47 @@ declare function gn:replace($gen as f:generator, $funIsMatching as function(item
       
 declare function gn:reverse($gen as f:generator) as f:generator
 {
-  if($gen?endReached) then gn:empty-generator($gen)
+  if($gen?end-reached) then gn:empty-generator($gen)
     else
-     let $current := $gen?getCurrent()
+     let $current := $gen?get-current()
        return
          gn:append(gn:reverse(gn:tail($gen)), $current)
 };      
       
 declare function gn:filter($gen as f:generator, $pred as function(item()*) as xs:boolean) as f:generator
 {
- if($gen?initialized and $gen?endReached) then gn:empty-generator($gen)
+ if($gen?initialized and $gen?end-reached) then gn:empty-generator($gen)
   else
     let $getNextGoodGen := function($gen as map(*), 
                                  $pred as function(item()*) as xs:boolean)
        {
-          if($gen?endReached) then gn:empty-generator($gen)
+          if($gen?end-reached) then gn:empty-generator($gen)
           else
             let $mapResult := 
                   while-do(
                            $gen,
-                           function($x) { not($x?endReached) and not($pred($x?getCurrent()))},
-                           function($x) { $x?moveNext() }
+                           function($x) { not($x?end-reached) and not($pred($x?get-current()))},
+                           function($x) { $x?move-next() }
                            )   
             return 
-              if($mapResult?endReached) then gn:empty-generator($gen)
+              if($mapResult?end-reached) then gn:empty-generator($gen)
                else $mapResult                  
        },
        
        $gen := if($gen?initialized) then $gen 
-                 else $gen?moveNext(),
+                 else $gen?move-next(),
        $nextGoodGen := $getNextGoodGen($gen, $pred)
     return
-      if($nextGoodGen?endReached) then gn:empty-generator($gen)
+      if($nextGoodGen?end-reached) then gn:empty-generator($gen)
       else
-        $nextGoodGen => map:put("moveNext", 
+        $nextGoodGen => map:put("move-next", 
                                 %method fn() 
                                   {
-                                    let $nextGoodGen := $getNextGoodGen(?inputGen?moveNext(), $pred)
+                                    let $nextGoodGen := $getNextGoodGen(?inputGen?move-next(), $pred)
                                       return
-                                        if($nextGoodGen?endReached) then gn:empty-generator($nextGoodGen)
+                                        if($nextGoodGen?end-reached) then gn:empty-generator($nextGoodGen)
                                         else
-                                          map:put(map:put($nextGoodGen, "moveNext", %method fn() {gn:filter($nextGoodGen?moveNext(), $pred)}),
+                                          map:put(map:put($nextGoodGen, "move-next", %method fn() {gn:filter($nextGoodGen?move-next(), $pred)}),
                                                           "inputGen", $nextGoodGen
                                                   )
                                    }
@@ -339,42 +339,42 @@ declare function gn:filter($gen as f:generator, $pred as function(item()*) as xs
   
 declare function gn:fold-left($gen as f:generator, $init as item()*, $action as fn(*)) as item()*
 {
-  if($gen?endReached) then $init
-    else gn:fold-left(gn:tail($gen), $action($init, $gen?getCurrent()), $action)
+  if($gen?end-reached) then $init
+    else gn:fold-left(gn:tail($gen), $action($init, $gen?get-current()), $action)
 };
 
 declare function gn:fold-right($gen as f:generator, $init as item()*, $action as fn(*)) as item()*
 {
-  if($gen?endReached) then $init
+  if($gen?end-reached) then $init
     else $action(gn:head($gen), gn:fold-right(gn:tail($gen), $init, $action))
 };
 
 declare function gn:fold-lazy($gen as f:generator, $init as item()*, $action as fn(*), $shortCircuitProvider as function(*)) as item()*
 {
-  if($gen?endReached) then $init
+  if($gen?end-reached) then $init
   else
-   let $current := $gen?getCurrent()
+   let $current := $gen?get-current()
      return
        if(function-arity($shortCircuitProvider($current, $init)) eq 0)
          then $shortCircuitProvider($current, $init)()
-         else $action($current, gn:fold-lazy($gen?moveNext(), $init, $action, $shortCircuitProvider))
+         else $action($current, gn:fold-lazy($gen?move-next(), $init, $action, $shortCircuitProvider))
 };
 
 declare function gn:scan-left($gen as f:generator, $init as item()*, $action as fn(*)) as f:generator
 {
   let $resultGen := $gen?empty-generator() 
-                        => map:put("endReached", false())
-                        => map:put("getCurrent", %method fn(){$init})
+                        => map:put("end-reached", false())
+                        => map:put("get-current", %method fn(){$init})
    return
-     if($gen?endReached) 
-       then $resultGen => map:put("moveNext", %method fn(){$gen?empty-generator()})
+     if($gen?end-reached) 
+       then $resultGen => map:put("move-next", %method fn(){$gen?empty-generator()})
        else
-         let $resultGen := $resultGen => map:put("getCurrent", %method fn(){$init}),
-             $partialFoldResult := $action($init, $gen?getCurrent())
+         let $resultGen := $resultGen => map:put("get-current", %method fn(){$init}),
+             $partialFoldResult := $action($init, $gen?get-current())
            return
-             let $nextGen := $gen?moveNext()
+             let $nextGen := $gen?move-next()
               return
-                $resultGen => map:put("moveNext", %method fn()
+                $resultGen => map:put("move-next", %method fn()
                                       { 
                                           gn:scan-left($nextGen, $partialFoldResult, $action)
                                        }
@@ -388,16 +388,16 @@ declare function gn:scan-right($gen as f:generator, $init as item()*, $action as
 
 declare function gn:make-generator($gen as f:generator, $provider as function(*)) as f:generator
 {
- let $gen := if(not($gen?initialized)) then $gen?moveNext()
+ let $gen := if(not($gen?initialized)) then $gen?move-next()
             else $gen,
       $nextDataItemGetter := $provider(0),
       $nextGen := if(not($nextDataItemGetter instance of function(*))) then gn:empty-generator($gen)  
                    else gn:empty-generator($gen)
                     => map:put("numDataItems", 1)
                     => map:put("current", $nextDataItemGetter())
-                    => map:put("endReached", false())
-                    => map:put("getCurrent", %method fn() {?current})
-                    => map:put("moveNext",  
+                    => map:put("end-reached", false())
+                    => map:put("get-current", %method fn() {?current})
+                    => map:put("move-next",  
                                %method fn() 
                                 {
                                   let $nextDataItemGetter := $provider(?numDataItems)
@@ -473,16 +473,16 @@ declare function gn:to-map($gen as f:generator) as map(*)
 
 declare function gn:empty-generator($gen as f:generator) as f:generator 
 {
-  $gen => map:put("initialized", true()) => map:put("endReached", true())
-    => map:put("getCurrent", %method fn() {error((),"getCurrent() called on an empty-generator")})
-    => map:put("moveNext", %method fn() {error((),"moveNext() called on an empty-generator")})
+  $gen => map:put("initialized", true()) => map:put("end-reached", true())
+    => map:put("get-current", %method fn() {error((),"get-current() called on an empty-generator")})
+    => map:put("move-next", %method fn() {error((),"move-next() called on an empty-generator")})
 };         
 
 declare record f:generator 
    ( initialized as xs:boolean,
-     endReached as xs:boolean,
-     getCurrent as %method fn() as item()*,
-     moveNext as %method fn(*) (: as f:generator, :),
+     end-reached as xs:boolean,
+     get-current as %method fn() as item()*,
+     move-next as %method fn(*) (: as f:generator, :),
      to-array := %method fn()
      {
         gn:to-array(.)
@@ -669,9 +669,9 @@ declare record f:generator
    );
 
 
-let $gen2ToInf := f:generator(initialized := true(), endReached := false(), 
-                              getCurrent := %method fn(){?last +1},
-                              moveNext := %method fn()
+let $gen2ToInf := f:generator(initialized := true(), end-reached := false(), 
+                              get-current := %method fn(){?last +1},
+                              move-next := %method fn()
                               {
                                 if(not(?initialized))
                                   then map:put(., "initialized", true())
@@ -690,27 +690,27 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "$gen2ToInf?take(3)?to-array()",
     $gen2ToInf?take(3)?to-array(),
     "================",    
-    "$gen2ToInf?take(3)?skip(2)?getCurrent()",
-    $gen2ToInf?take(3)?skip(2)?getCurrent(),
-    (: $gen2ToInf?take(3)?moveNext()?moveNext()?moveNext()?getCurrent(), :)
+    "$gen2ToInf?take(3)?skip(2)?get-current()",
+    $gen2ToInf?take(3)?skip(2)?get-current(),
+    (: $gen2ToInf?take(3)?move-next()?move-next()?move-next()?get-current(), :)
     "================",
-    "$gen2ToInf?getCurrent()",
-    $gen2ToInf?getCurrent(),
-    "$gen2ToInf?moveNext()?getCurrent()",
-    $gen2ToInf?moveNext()?getCurrent(),
+    "$gen2ToInf?get-current()",
+    $gen2ToInf?get-current(),
+    "$gen2ToInf?move-next()?get-current()",
+    $gen2ToInf?move-next()?get-current(),
     "================",
     "$gen2ToInf?take(5) instance of f:generator",
     $gen2ToInf?take(5) instance of f:generator,
     "==>  $gen2ToInf?skip(7) instance of f:generator",
     $gen2ToInf?skip(7) instance of f:generator,  
     "================",
-    "$gen2ToInf?subrange(4, 6)?getCurrent()",
-    $gen2ToInf?subrange(4, 6)?getCurrent(), 
-    "$gen2ToInf?subrange(4, 6)?moveNext()?getCurrent()",
-    $gen2ToInf?subrange(4, 6)?moveNext()?getCurrent(),
-    "$gen2ToInf?subrange(4, 6)?moveNext()?moveNext()?getCurrent()",
-    $gen2ToInf?subrange(4, 6)?moveNext()?moveNext()?getCurrent(),
-    (: $gen2ToInf?subrange(4, 6)?moveNext()?moveNext()?moveNext()?getCurrent() :) (: Must raise error:)    
+    "$gen2ToInf?subrange(4, 6)?get-current()",
+    $gen2ToInf?subrange(4, 6)?get-current(), 
+    "$gen2ToInf?subrange(4, 6)?move-next()?get-current()",
+    $gen2ToInf?subrange(4, 6)?move-next()?get-current(),
+    "$gen2ToInf?subrange(4, 6)?move-next()?move-next()?get-current()",
+    $gen2ToInf?subrange(4, 6)?move-next()?move-next()?get-current(),
+    (: $gen2ToInf?subrange(4, 6)?move-next()?move-next()?move-next()?get-current() :) (: Must raise error:)    
     "================",    
     "$gen2ToInf?subrange(4, 6)?head()",
     $gen2ToInf?subrange(4, 6)?head(),  
@@ -747,10 +747,10 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
     "==>  $gen2ToInf?for-each-pair($gen2ToInf, $sum2)?take(5)?to-array()",
     $gen2ToInf?for-each-pair($gen2ToInf, $sum2)?take(5)?to-array(),
     "================",
-    "==>  $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?getCurrent()",
-    $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?getCurrent(),
-    "$gen2ToInf?filter(fn($n){$n mod 2 eq 1})?moveNext()?getCurrent()",
-    $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?moveNext()?getCurrent(),
+    "==>  $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?get-current()",
+    $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?get-current(),
+    "$gen2ToInf?filter(fn($n){$n mod 2 eq 1})?move-next()?get-current()",
+    $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?move-next()?get-current(),
     "================", 
     "$gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?to-array()",
     $gen2ToInf?filter(fn($n){$n mod 2 eq 1})?take(10)?to-array(),  
@@ -798,17 +798,17 @@ let $gen2ToInf := f:generator(initialized := true(), endReached := false(),
      "$gen2ToInf?take(10)?subrange(5, 3)?to-array()",
      $gen2ToInf?take(10)?subrange(5, 3)?to-array(),
      "================",
-     "$gen2ToInf?take(100)?chunk(20)?getCurrent()",
-      $gen2ToInf?take(100)?chunk(20)?getCurrent(),
+     "$gen2ToInf?take(100)?chunk(20)?get-current()",
+      $gen2ToInf?take(100)?chunk(20)?get-current(),
       "==>  $gen2ToInf?chunk(20)?take(5)?to-array()",
       $gen2ToInf?chunk(20)?take(5)?to-array(),
      "================",
-     "$gen2ToInf?take(100)?chunk(20)?moveNext()?getCurrent()",
-      $gen2ToInf?take(100)?chunk(20)?moveNext()?getCurrent(),
-     "$gen2ToInf?take(100)?chunk(20)?moveNext()?moveNext()?getCurrent()", 
-      $gen2ToInf?take(100)?chunk(20)?moveNext()?moveNext()?getCurrent(),
-     "$gen2ToInf?take(100)?chunk(20)?skip(1)?getCurrent()",      
-      $gen2ToInf?take(100)?chunk(20)?skip(1)?getCurrent(),
+     "$gen2ToInf?take(100)?chunk(20)?move-next()?get-current()",
+      $gen2ToInf?take(100)?chunk(20)?move-next()?get-current(),
+     "$gen2ToInf?take(100)?chunk(20)?move-next()?move-next()?get-current()", 
+      $gen2ToInf?take(100)?chunk(20)?move-next()?move-next()?get-current(),
+     "$gen2ToInf?take(100)?chunk(20)?skip(1)?get-current()",      
+      $gen2ToInf?take(100)?chunk(20)?skip(1)?get-current(),
      "================",      
      "$gen2ToInf?take(100)?chunk(20)?for-each(fn($genX){$genX})?to-array()",      
       $gen2ToInf?take(100)?chunk(20)?for-each(fn($genX){$genX})?to-array(),
