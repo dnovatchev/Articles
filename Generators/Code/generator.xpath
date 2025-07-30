@@ -128,7 +128,7 @@ declare record f:generator
      
      at := %method fn($ind as xs:nonNegativeInteger) as item()* {?subrange($ind, $ind)?get-current()},
      
-     contains %method fn($value as item()*) as xs:boolean
+     contains := %method fn($value as item()*) as xs:boolean
      {
        let $gen := if(not(?initialized)) then ?move-next()
                      else .
