@@ -452,9 +452,9 @@ declare function gn:make-generator-from-sequence($input as item()*) as f:generat
                         }
    return gn:make-generator($seqProvider)
 };   
-
+        
 declare function gn:make-generator-from-map($inputMap as map(*)) as f:generator
-        {
+{
           let $keys := map:keys($inputMap),
               $size := map:size($inputMap),
               $mapProvider := fn($state as array(xs:integer?))
@@ -469,41 +469,29 @@ declare function gn:make-generator-from-map($inputMap as map(*)) as f:generator
                                     else
                                        let $key := $keys[$ind + 1]
                                         return
-                                          [( $key, [ $inputMap($key) ])]
+                                          [map:entry($key, $inputMap($key))]
  
                   return [$newState, $newResult]                                      
              }                        
             return
-              gn:make-generator($mapProvider)
-        };
+              gn:make-generator($mapProvider)  
+};
+        
 
 declare function gn:to-sequence($gen as f:generator) as item()* {gn:to-array($gen) => array:items()}; 
 
-declare function gn:to-map($gen as f:generator) as map(*)
+declare function gn:to-map($generator as f:generator) as map(*)
         {
-          let $genEntries := $gen => gn:for-each(fn($x)
-                           {
-                             let $key := head($x),
-                                 $tail := tail($x),
-                                 $value := if($tail instance of array(*)) 
-                                           then for $ind in 1 to array:size($tail)
-                                                 return $tail($ind)
-                                           else $tail
-                             return
-                               map:entry($key, $value)
-                           }
-                         ) 
-           return
-             map:merge($genEntries => gn:to-sequence())
+             map:merge($generator => gn:to-sequence())
         };    
 
 declare function gn:empty-generator() as f:generator 
 {
   f:generator(initialized := true(), end-reached := true(),
               get-current := fn($this as f:generator)
-                                {error((),"get-current() called on an empty-generator")},
+                                {error(QName('http://www.w3.org/2005/xqt-errors', 'err:FOGR0002'),"get-current() called on an empty-generator")},
               move-next := fn($this as f:generator)
-                                {error((),"move-next() called on an empty-generator")}
+                                {error(QName('http://www.w3.org/2005/xqt-errors', 'err:FOGR0002'),"move-next() called on an empty-generator")}
            )
 };
 
@@ -936,8 +924,11 @@ let $gen2ToInf := f:generator(initialized := true(), end-reached := false(),
          $genMap := gn:make-generator-from-map($myMap)
       return
         $genMap => gn:to-map(),
-     "$gen2ToInf => gn:take(10) => gn:to-map()",
-     $gen2ToInf => gn:take(10) => gn:to-map()
+     "$gen2ToInf => gn:take(10) => gn:chunk(2) 
+           => gn:for-each(fn($chunk){map:entry($chunk(1), $chunk(2))})  
+           => gn:to-map()",
+     $gen2ToInf => gn:take(10) => gn:chunk(2) => gn:for-each(fn($chunk){map:entry($chunk(1), $chunk(2))})  => gn:to-map()
+     (: ,  $gen2ToInf => gn:take(10) => gn:to-map() :)
      (:  , gn:empty-generator() => gn:to-map() :)
      (: , $gen2ToInf => gn:make-generator-from-array([(), 5])  => gn:to-map()    :)  
    )
