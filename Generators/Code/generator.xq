@@ -373,6 +373,30 @@ declare function gn:scan-right($gen as f:generator, $init as item()*, $action as
 {
   gn:reverse(gn:scan-left(gn:reverse($gen), $init, $action))                         
 };
+
+declare function gn:merge-sorted-generators($arrayOfGens as array(f:generator)) as f:generator
+{
+  if(array:empty($arrayOfGens)) then gn:empty-generator()
+    else
+      let $starts := $arrayOfGens => array:for-each(fn($gen){$gen => gn:value()}),
+          $minVal := min($starts),
+          $firstMinIndex := ($starts => array:index-where(fn($val){$val eq $minVal}))[1],
+          $firstMinGenerator := $arrayOfGens($firstMinIndex),
+          $newArrayOfGens := $arrayOfGens => array:remove($firstMinIndex),
+          $trimmedGenerator := $firstMinGenerator => gn:skip(1),
+          $newArOfGens2 := if(gn:some($trimmedGenerator)) 
+                              then $newArrayOfGens => array:append($trimmedGenerator)
+                              else $newArrayOfGens,      
+         $result := f:generator(initialized := true(), end-reached := false(),
+                             get-current := fn($this as f:generator)
+                                              {$minVal},
+                             move-next := fn($this as f:generator)
+                                            {gn:merge-sorted-generators($this?state?inputGenerators )},
+                             state := map{}      
+                            ) => map:put("state", map{"inputGenerators": $newArOfGens2} )                   
+       return
+          $result
+};
  
 declare function gn:make-generator($provider as function(array(*)) as array(*)) 
 {
@@ -487,9 +511,7 @@ let $gen2ToInf := f:generator(initialized := true(),
                               get-current :=   fn($this as f:generator){$this?state?last +1},
                               move-next :=   fn($this as f:generator)
                               {
-                                if(not($this?initialized))
-                                  then map:put($this, "initialized", true())
-                                  else map:put($this, "state", map{"last": $this?state?last + 1})
+                                map:put($this, "state", map{"last": $this?state?last + 1})
                               },
                               state := map{"last" : 1}
                              ),
@@ -501,6 +523,17 @@ let $gen2ToInf := f:generator(initialized := true(),
                              state := map{}      
                             ),
     $genN := $gen2ToInf => map:put("state", map{"last": 0}),
+    $genFibo := f:generator(initialized := true(), end-reached := false(),
+                             get-current := fn($this as f:generator)
+                                              {$this?state?current},
+                             move-next := fn($this as f:generator)
+                                             {map:put($this, "state", 
+                                                      map{"current": $this?state?next,
+                                                          "next": $this?state?current + $this?state?next                                                          
+                                                         }
+                                                     )},
+                             state := map{"current": 0, "next": 1}      
+                            ),
     $gen0toInf := $gen2ToInf => map:put("state", map{"last": -1}),
     $double := fn($n) {2*$n},
     $sum2 := fn($m, $n) {$m + $n},
@@ -626,6 +659,8 @@ let $gen2ToInf := f:generator(initialized := true(),
      $gen2ToInf => gn:take(10) => gn:skip(10) => gn:to-array(),
      "$gen2ToInf => gn:take(10) => gn:skip(9) => gn:to-array()",     
      $gen2ToInf => gn:take(10) => gn:skip(9) => gn:to-array(),
+     "$gen2ToInf => gn:skip(3) => gn:take(10) => gn:to-array()",
+     $gen2ToInf => gn:skip(3) => gn:take(10) => gn:to-array(),
      "$gen2ToInf => gn:take(10) => gn:subrange(3, 13) => gn:to-array()",
      $gen2ToInf => gn:take(10) => gn:subrange(3, 13) => gn:to-array(),
      "$gen2ToInf => gn:take(10) => gn:subrange(5, 3) => gn:to-array()",
@@ -693,7 +728,7 @@ let $gen2ToInf := f:generator(initialized := true(),
      "gn:make-generator(fn($state as array(*))
                         {
                           let $numGenerated := if(array:empty($state)) then 0
-                                               else $state[1]
+                                               else $state(1)
                             return
                                if($numGenerated le 9) then [ [$numGenerated + 1], [$numGenerated + 1] ]
                                  else [[-1], []]
@@ -703,7 +738,7 @@ let $gen2ToInf := f:generator(initialized := true(),
      gn:make-generator(fn($state as array(*))
                                  {
                                    let $numGenerated := if(array:empty($state)) then 0
-                                                        else $state[1]
+                                                        else $state(1)
                                      return
                                         if($numGenerated le 9) then [ [$numGenerated + 1], [$numGenerated + 1] ]
                                           else [[-1], []]
@@ -712,7 +747,7 @@ let $gen2ToInf := f:generator(initialized := true(),
      "gn:make-generator(fn($state as array(*))
                           {
                             let $numGenerated := if(array:empty($state)) then 0
-                                                 else $state[1]
+                                                 else $state(1)
                              return
                                [ [$numGenerated + 1], [$numGenerated + 1] ]
                           } 
@@ -720,7 +755,7 @@ let $gen2ToInf := f:generator(initialized := true(),
      gn:make-generator(fn($state as array(*))
                                  {
                                    let $numGenerated := if(array:empty($state)) then 0
-                                                        else $state[1]
+                                                        else $state(1)
                                      return
                                         [ [$numGenerated + 1], [$numGenerated + 1] ]
                                  } 
@@ -728,7 +763,7 @@ let $gen2ToInf := f:generator(initialized := true(),
      "gn:make-generator(fn($state as array(*))
                           {
                             let $numGenerated := if(array:empty($state)) then 0
-                                                 else $state[1]
+                                                 else $state(1)
                               return
                                  [ [$numGenerated + 1], [$numGenerated + 1] ]
                           } 
@@ -736,11 +771,32 @@ let $gen2ToInf := f:generator(initialized := true(),
      gn:make-generator(fn($state as array(*))
                                  {
                                    let $numGenerated := if(array:empty($state)) then 0
-                                                        else $state[1]
+                                                        else $state(1)
                                      return
                                         [ [$numGenerated + 1], [$numGenerated + 1] ]
                                  } 
-                             ) => gn:subrange(10, 15) => gn:to-array(),                             
+                             ) => gn:subrange(10, 15) => gn:to-array(), 
+     "(let $allNumbers :=  gn:make-generator(fn($state as array(*))
+                                 {
+                                   let $numGenerated := if(array:empty($state)) then 0
+                                                        else $state(1)
+                                     return
+                                        [ [$numGenerated + 1], [$numGenerated + 1] ]
+                                 } 
+                             )      
+           
+      return ($allNumbers => gn:value(), $allNumbers => gn:subrange(10, 15) => gn:to-array())",                           
+      (let $allNumbers :=  gn:make-generator(fn($state as array(*))
+                                 {
+                                   let $numGenerated := if(array:empty($state)) then 0
+                                                        else $state(1)
+                                     return
+                                        [ [$numGenerated + 1], [$numGenerated + 1] ]
+                                 } 
+                             )      
+           
+      return ($allNumbers => gn:value(), $allNumbers => gn:subrange(10, 15) => gn:to-array()) 
+    ),                
      "================", 
      "gn:make-generator-from-array([1, 4, 9, 16, 25]) => gn:to-array()",
       gn:make-generator-from-array([1, 4, 9, 16, 25]) => gn:to-array(),
@@ -918,10 +974,10 @@ let $gen2ToInf := f:generator(initialized := true(),
      ,
      "=====================================
           let $matr := [
-                   [11, 12, 13 , 14], 
-                   [21, 22, 23 , 24], 
-                   [31, 32, 33 , 34], 
-                   [41, 42, 43 , 44] 
+                   [11, 12, 13 , 14, 15], 
+                   [21, 22, 23 , 24, 25], 
+                   [31, 32, 33 , 34, 35], 
+                   [41, 42, 43 , 44, 45] 
                  ],
          $len := $matr => array:size(),
          $Gen := $matr => array:for-each(fn($row as array(*))
@@ -934,12 +990,13 @@ let $gen2ToInf := f:generator(initialized := true(),
               $Gen =>gn:for-each( fn($g as f:generator){$g =>gn:at($newRow) }) => gn:to-array()",
      let $matr := 
                [
-                   [11, 12, 13 , 14], 
-                   [21, 22, 23 , 24], 
-                   [31, 32, 33 , 34], 
-                   [41, 42, 43 , 44] 
+                   [11, 12, 13 , 14, 15], 
+                   [21, 22, 23 , 24, 25], 
+                   [31, 32, 33 , 34, 35], 
+                   [41, 42, 43 , 44, 45] 
                  ],
-         $len := $matr => array:size(),
+         $height := $matr => array:size(),
+         $width := array:size($matr(1)),
          $Gen := $matr => array:for-each(fn($row as array(*))
                                            {$row => gn:make-generator-from-array()}
                                          )
@@ -947,11 +1004,12 @@ let $gen2ToInf := f:generator(initialized := true(),
         return
         (
           array{
-          for $newRow in 1 to $len
+          for $newRow in 1 to $width
             return
               $Gen =>gn:for-each( fn($g as f:generator){$g =>gn:at($newRow) }) => gn:to-array()
              }
            ),
+      (:
          let $ar1 := [1, 3, 5, 7, 9, 11],
              $ar2 :=  [-100, -90, -80, -70, -60, -50],
              $ar3 := [-10, -8, -6, -4, -2, 0],
@@ -965,6 +1023,169 @@ let $gen2ToInf := f:generator(initialized := true(),
                    $GenWithMin := $GenArs => gn:first-where(fn($gen){$gen => gn:value() eq $minVal}),
                    $GenSorted := $GenSorted => gn:append($minVal)
                 return
-                   ($GenSorted => gn:to-array(), $GenWithMin)
-          
-   )
+                   ($GenSorted => gn:to-array(), $GenWithMin),
+        :)                   
+         "=====================",
+         "$genFibo => gn:subrange(1, 10) => gn:to-array()",
+         $genFibo => gn:subrange(1, 10) => gn:to-array(),
+         "$genFibo => gn:first-where(fn($n) {$n gt 1000})",
+         $genFibo => gn:first-where(fn($n) {$n gt 1000}),
+         "$genFibo => gn:for-each(fn($k){$k mod 2}) => gn:subrange(1,20) => gn:to-array()",
+         $genFibo => gn:for-each(fn($k){$k mod 2}) => gn:subrange(1,20) => gn:to-array(),
+         "gn:for-each(fn($k){$k mod 3}) => gn:subrange(1,20) => gn:to-array()",
+         $genFibo => gn:for-each(fn($k){$k mod 3}) => gn:subrange(1,20) => gn:to-array(),
+         "$genFibo => gn:filter(fn($k) {$k mod 3 eq 0}) => gn:subrange(1,20) => gn:to-array()",
+         $genFibo => gn:filter(fn($k) {$k mod 3 eq 0}) => gn:subrange(1,20) => gn:to-array(),
+         "$genFibo => gn:first-where(fn($n){let $sqrt := math:sqrt($n) 
+                                    return floor($sqrt) eq ceiling($sqrt) and $n gt 1})",
+         $genFibo => gn:first-where(fn($n){let $sqrt := math:sqrt($n) 
+                                            return floor($sqrt) eq ceiling($sqrt) and $n gt 1}),
+    "=====================================
+         (let $genAncestorNodes := f:generator(initialized := true(), 
+                                             end-reached := false(), 
+                                             get-current := fn($this as f:generator)
+                                                              { let $current := $this?state?currentNode
+                                                                 return if($current instance of document-node()) then '/'
+                                                                          else $current/name()
+                                                              },
+                                             move-next :=   fn($this as f:generator)
+                                             {
+                                                if(empty($this?state?currentNode/..))
+                                                  then map:put($this, 'end-reached', true())
+                                                  else
+                                                    map:put($this, 'state', map{'currentNode': $this?state?currentNode/..})
+                                              },
+                                             state := map{'currentNode' : 
+                                                                (
+                                                                  parse-xml('<x>
+                                                                               <y>
+                                                                                 <z/>
+                                                                               </y>
+                                                                             </x>')//*[not(*)]
+                                                               )[1]
+                                                             }
+                                            ) 
+           return $genAncestorNodes => gn:to-array() 
+    ",
+    
+                                                
+         (let $genAncestorNodes := f:generator(initialized := true(), 
+                                             end-reached := false(), 
+                                             get-current :=   fn($this as f:generator)
+                                                               { let $current := $this?state?currentNode
+                                                                  return if($current instance of document-node()) then '/'
+                                                                           else $current/name()
+                                                               },
+                                             move-next :=   fn($this as f:generator)
+                                             { 
+                                                if(empty($this?state?currentNode/..))
+                                                  then map:put($this, "end-reached", true())
+                                                  else
+                                                    map:put($this, "state", map{"currentNode": $this?state?currentNode/..})
+                                              },
+                                             state := map{"currentNode" : 
+                                                                parse-xml(
+                                                                  '<x>
+                                                                     <y>
+                                                                       <z/>
+                                                                     </y>
+                                                                   </x>')
+                                                                     //*[not(*)][1]
+                                                             }
+                                            ) 
+           return $genAncestorNodes => gn:to-array()         
+   ),
+   "=====================",
+   "(
+     let $ar1 := [-100, -4, 1, 3, 5, 7, 9, 11],
+       $ar2 :=  [-100, -90, -80, -70, -60, -50],
+       $ar3 := [-10, -8, -6, -4, -2, 0, 15],
+       $gn1 := gn:make-generator-from-array($ar1),
+       $gn2 := gn:make-generator-from-array($ar2),
+       $gn3 := gn:make-generator-from-array($ar3)
+     return
+       gn:merge-sorted-generators([$gn1, $gn2, $gn3]) => gn:to-array()
+   )",
+   (
+     let $ar1 := [-100, -4, 1, 3, 5, 7, 9, 11],
+       $ar2 :=  [-100, -90, -80, -70, -60, -50],
+       $ar3 := [-10, -8, -6, -4, -2, 0, 15],
+       $gn1 := gn:make-generator-from-array($ar1),
+       $gn2 := gn:make-generator-from-array($ar2),
+       $gn3 := gn:make-generator-from-array($ar3)
+     return
+       gn:merge-sorted-generators([$gn1, $gn2, $gn3]) => gn:to-array()
+   ),
+   "let  $ar1 := array {1 to 100_000_000_000},
+         $ar2 := array {2 to 100_000_000_001},
+         $ar3 := array {3 to 100_000_000_002},
+         $gn1 := gn:make-generator-from-array($ar1),
+         $gn2 := gn:make-generator-from-array($ar2),
+         $gn3 := gn:make-generator-from-array($ar3)
+     return
+       gn:merge-sorted-generators([$gn1, $gn2, $gn3]) => gn:subrange(1, 30) => gn:to-array()",
+   (
+     let $ar1 := array {1 to 100_000_000_000},
+         $ar2 := array {2 to 100_000_000_001},
+         $ar3 := array {3 to 100_000_000_002},
+         $gn1 := gn:make-generator-from-array($ar1),
+         $gn2 := gn:make-generator-from-array($ar2),
+         $gn3 := gn:make-generator-from-array($ar3)
+     return
+       gn:merge-sorted-generators([$gn1, $gn2, $gn3]) => gn:subrange(1, 30) => gn:to-array()
+   ),  
+   "     let $gn1 := gn:make-generator(fn($state as array(*))
+                                  {
+                                   let $numGenerated := if(array:empty($state)) then 0
+                                       else $state[1]
+                                    return
+                                      [ [$numGenerated + 2], [$numGenerated + 2] ]
+                                  }
+                                 ),
+         $gn2 := gn:make-generator(fn($state as array(*))
+                                  {
+                                   let $numGenerated := if(array:empty($state)) then 0
+                                       else $state[1]
+                                    return
+                                      [ [$numGenerated + 3], [$numGenerated + 3] ]
+                                  }
+                                 ),
+         $gn3 := gn:make-generator(fn($state as array(*))
+                                 {
+                                   let $numGenerated := if(array:empty($state)) then 0
+                                       else $state[1]
+                                    return
+                                      [ [$numGenerated + 5], [$numGenerated + 5] ]
+                                 }
+                                 )
+     return
+       gn:merge-sorted-generators([$gn1, $gn2, $gn3]) => gn:subrange(1, 40) => gn:to-array()",
+   (
+     let $gn1 := gn:make-generator(fn($state as array(*))
+                                  {
+                                   let $numGenerated := if(array:empty($state)) then 0
+                                       else $state[1]
+                                    return
+                                      [ [$numGenerated + 2], [$numGenerated + 2] ]
+                                  }
+                                 ),
+         $gn2 := gn:make-generator(fn($state as array(*))
+                                  {
+                                   let $numGenerated := if(array:empty($state)) then 0
+                                       else $state[1]
+                                    return
+                                      [ [$numGenerated + 3], [$numGenerated + 3] ]
+                                  }
+                                 ),
+         $gn3 := gn:make-generator(fn($state as array(*))
+                                 {
+                                   let $numGenerated := if(array:empty($state)) then 0
+                                       else $state[1]
+                                    return
+                                      [ [$numGenerated + 5], [$numGenerated + 5] ]
+                                 }
+                                 )
+     return
+       gn:merge-sorted-generators([$gn1, $gn2, $gn3]) => gn:subrange(1, 40) => gn:to-array()
+   )      
+ )
