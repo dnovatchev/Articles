@@ -1187,5 +1187,29 @@ let $gen2ToInf := f:generator(initialized := true(),
                                  )
      return
        gn:merge-sorted-generators([$gn1, $gn2, $gn3]) => gn:subrange(1, 40) => gn:to-array()
-   )      
+   ),
+   "=================
+      let $f := fn($n) {math:sqrt($n) idiv 20}    
+    return
+      $genN => gn:at($f(100000000))",
+   let $f := fn($n) {math:sqrt($n) idiv 20}    
+    return
+      $genN => gn:at($f(100000000)),
+   "=================
+      let $f := fn($n) {$factorial($n) div $factorial($n -2)}
+     return
+       $genN => gn:at($f(20))",      
+     let $f := fn($n) {$factorial($n) div $factorial($n -2)}
+     return
+       $genN => gn:at($f(20)),
+    "=================
+    let $square := function($n as xs:decimal) as xs:decimal {$n * $n}
+      return
+        $genN => gn:subrange(1, 10_000_000) => gn:for-each($square) => gn:subrange($square(10), $square(12))
+                   => gn:fold-left(0, fn($x, $y){$x + $y})
+    ",
+    let $square := function($n as xs:decimal) as xs:decimal {$n * $n}
+      return
+        $genN => gn:subrange(1, 10_000_000) => gn:for-each($square) => gn:subrange($square(10), $square(12))
+                   => gn:fold-left(0, fn($x, $y){$x + $y})
  )
